@@ -15,7 +15,8 @@
 6. [技术栈与依赖](#6-技术栈与依赖)
 7. [设计亮点](#7-设计亮点)
 8. [扩展机制](#8-扩展机制)
-9. [附录：关键类索引](#9-附录关键类索引)
+9. [源码级实现原理深度剖析](#9-源码级实现原理深度剖析)
+10. [附录：关键类索引](#10-附录关键类索引)
 
 ---
 
@@ -318,6 +319,18 @@ private static volatile AbstractSpy spyInstance = NOPSPY;
 
 `arthas-core` 使用 **maven-shade-plugin** 将 Netty、Logback、Fastjson2、SLF4J 等重定位到 `com.alibaba.arthas.deps.*`，避免与业务依赖版本冲突。`arthas-spy.jar` **独立** 不打进 core，单独加入 Bootstrap。
 
+### 5.11 终端实现技术（多端统一接入）
+
+Arthas 终端并非单一库，而是 **服务端 termd + 客户端 JLine + 浏览器 xterm.js** 三层协作：
+
+| 场景 | 技术栈 | 关键类 |
+|------|--------|--------|
+| JVM 内 Shell 服务 | **termd-core** + **Netty** | `HttpTelnetTermServer`、`TermImpl`、`Readline` |
+| 本机 CLI 客户端 | **JLine 2** + **Commons Net Telnet** | `TelnetConsole`、`ConsoleReader`、`TelnetClient` |
+| WebConsole | **xterm.js** + HTTP/WebSocket | `web-ui/.../Console.vue` → termd `HttpTtyConnection` |
+
+服务端 `TermImpl` 基于 termd 的 `Readline` 做行编辑、命令历史（`Constants.CMD_HISTORY_FILE`）、`inputrc` 快捷键；`HttpTelnetTermServer` 在 **同一端口**（默认 3658）同时承载 Telnet 与 HTTP 协议。客户端用 JLine 处理本地键盘，通过 Telnet 流与 Server 双向转发（`IOUtil.readWrite`）。Shell 整体设计借鉴 **Vert.x Shell**（作者 Julien Viet），命令 Tab 补全由 **middleware cli** + `CompletionUtils` 完成，与终端库解耦。
+
 ---
 
 ## 6. 技术栈与依赖
@@ -392,6 +405,38 @@ private static volatile AbstractSpy spyInstance = NOPSPY;
 
 将诊断能力 Tool 化，便于 IDE/Cursor 等 **AI Agent** 自动执行 `thread`、`jad`、`watch`，是人机协作方向上的架构扩展。
 
+### 7.8 注解式字节码织入，降低 ASM 维护成本
+
+`SpyInterceptors` 用 ByteKit 的 `@AtEnter/@AtExit/@AtInvoke` 声明拦截点，`DefaultInterceptorClassParser` 自动解析为 `InterceptorProcessor`，避免手写大量 ASM 指令。`inline = true` 保证 Spy 调用内联到业务方法，减少栈帧开销。
+
+### 7.9 多 watch/trace 共存而不重复插桩
+
+`GroupLocationFilter` + `InvokeContainLocationFilter` 检测方法体是否已有 `SpyAPI.atEnter/atExit` 调用；若已增强，新 trace 命令只 **注册 Listener** 而不再改写字节码，支持同一方法上叠加多个观测命令。
+
+### 7.10 按 ClassLoader 弱引用索引 Listener
+
+`AdviceListenerManager` 用 `ConcurrentWeakKeyHashMap<ClassLoader, ...>` 做一级索引，ClassLoader 被 GC 后对应 Listener 表自动失效，避免长期持有已卸载的 Web 容器 ClassLoader。
+
+### 7.11 热路径上的「零查表」短路
+
+`SpyAPI` 默认 `NOPSPY`；`SpyImpl.skipAdviceListener` 对 `TERMINATED/STOPPED` 的 Process 直接跳过；命令结束但字节码未 reset 时，回调开销接近空操作。
+
+### 7.12 可完整卸载的 Agent 生命周期
+
+`destroy()` 依次关闭 MCP、Shell、Tunnel、移除全部 Transformer、`SpyAPI.setNopSpy()`、反射调用 `AgentBootstrap.resetArthasClassLoader()`，解决 stop 后 **ClassLoader 泄漏**（issue #195、MCP keep-alive 线程等）。
+
+### 7.13 Express 的 ThreadLocal 弱引用设计
+
+`ExpressFactory` 用 `ThreadLocal<WeakReference<Express>>` 而非强引用，防止业务线程在 stop 后仍持有 `OgnlExpress`，导致 `ArthasClassloader` 无法回收——这是 attach 型工具典型的 **内存泄漏防线**。
+
+### 7.14 类搜索与增强前的多重过滤
+
+`SearchUtils` + `Enhancer.filter()` 在增强前排除：Arthas 自身类、Bootstrap 类（需 `options unsafe true`）、CGLIB 构造器异常表、native 方法、抽象方法、`<clinit>` 等，并给出可读失败原因（`EnhancerAffect`）。
+
+### 7.15 结构化结果与多端复用
+
+`ResultModel` + `ResultDistributor` + `SharingResultDistributor` 使同一会话可被 HTTP API、WebConsole、Telnet 多个 Consumer 订阅，避免为每种接入方式重复实现命令输出逻辑。
+
 ---
 
 ## 8. 扩展机制
@@ -416,7 +461,267 @@ private static volatile AbstractSpy spyInstance = NOPSPY;
 
 ---
 
-## 9. 附录：关键类索引
+## 9. 源码级实现原理深度剖析
+
+本章按「从附着到增强、从增强到回调、从回调到输出、从输出到销毁」的源码路径，逐层拆解 Arthas 的核心实现。
+
+### 9.1 Agent 附着：独立线程绑定，规避 Attach 死锁
+
+`AgentBootstrap.main` 在 `synchronized` 块内 **新建 `arthas-binding-thread`** 执行 `ArthasBootstrap.getInstance`，并 `join()` 等待完成。注释明确说明这是为了防止 attach 过程中的 **内存泄漏与死锁**（issue #195）：Attach 线程若与目标 JVM 某些初始化锁交织，直接在 agentmain 线程里启动 Netty Server 可能卡住。
+
+```java
+// agent/.../AgentBootstrap.java
+Thread bindingThread = new Thread() {
+    public void run() {
+        bind(inst, agentLoader, agentArgs);  // 反射调用 ArthasBootstrap
+    }
+};
+bindingThread.setName("arthas-binding-thread");
+bindingThread.start();
+bindingThread.join();
+```
+
+重复 attach 时，agent 与 `ArthasAgent`（Spring Starter）均先 `Class.forName("java.arthas.SpyAPI")` 并检查 `SpyAPI.isInited()`，已运行则直接返回，避免双份 Server。
+
+### 9.2 ArthasClassloader：刻意打破双亲委派的隔离策略
+
+`ArthasClassloader` 的 parent 设为 `SystemClassLoader.getParent()`（即 **ExtClassLoader**），而非 SystemClassLoader：
+
+```java
+// agent/.../ArthasClassloader.java
+public ArthasClassloader(URL[] urls) {
+    super(urls, ClassLoader.getSystemClassLoader().getParent());
+}
+@Override
+protected Class<?> loadClass(String name, boolean resolve) {
+    // java.* / sun.* 仍委托 parent，其余优先 findClass（arthas-core.jar）
+}
+```
+
+**意图**：Arthas 实现类只从 `arthas-core.jar` 加载，不经过 Application ClassLoader，从而 **看不见也污染不了** 业务 classpath；同时 `java.*` 仍走标准委派，保证 JDK 类正常解析。
+
+### 9.3 ByteKit 织入：从注解模板到 SpyAPI 静态调用
+
+增强的核心不是手写 `visitInsn`，而是 **解析拦截器模板类**：
+
+```java
+// core/.../Enhancer.java transform() 内
+interceptorProcessors.addAll(defaultInterceptorClassParser.parse(SpyInterceptor1.class)); // @AtEnter
+interceptorProcessors.addAll(defaultInterceptorClassParser.parse(SpyInterceptor2.class)); // @AtExit
+interceptorProcessors.addAll(defaultInterceptorClassParser.parse(SpyInterceptor3.class)); // @AtExceptionExit
+if (isTracing) {
+    interceptorProcessors.addAll(... SpyTraceInterceptor1/2/3 ...); // @AtInvoke
+}
+```
+
+`SpyInterceptor1` 示例：
+
+```java
+@AtEnter(inline = true)
+public static void atEnter(@Binding.Class Class<?> clazz, @Binding.MethodInfo String methodInfo, ...) {
+    SpyAPI.atEnter(clazz, methodInfo, target, args);
+}
+```
+
+trace 模式下 `@AtInvoke` 的 `excludes` 显式排除 `java.arthas.SpyAPI`、装箱类型，或整条 `java.**`（`skipJDKTrace`），防止 **观测代码观测自身** 导致无限递归。
+
+### 9.4 Enhancer.transform() 决策树（单次类转换的完整逻辑）
+
+```
+transform(loader, className, bytes)
+  ├─ loader 能否 loadClass(SpyAPI)? ─否→ return null（不增强）
+  ├─ 类是否在 matchingClasses / 懒加载匹配? ─否→ return null
+  ├─ ClassReader 保留原始 reader（优化 metaspace，防 OOM）
+  ├─ 移除 JSR 指令（issue #1304）
+  ├─ 遍历方法：
+  │    ├─ 跳过 abstract / native / <clinit>
+  │    ├─ 若已有 atBeforeInvoke → 只 registerTraceAdviceListener（不重复插桩）
+  │    └─ 否则 MethodProcessor + InterceptorProcessor 织入 Spy 调用
+  ├─ registerAdviceListener（enter/exit 监听注册）
+  ├─ classBytesCache.put(class)（标记已增强，供 reset 使用）
+  └─ 返回新字节码
+```
+
+**懒加载模式**（`isLazy`）：`matchingClasses` 在 `enhance()` 时可为空，transform 在 `classBeingRedefined == null`（类首次加载）时按类名模式匹配，并配合 `TransformerManager.lazyClassFileTransformer`（`addTransformer(..., false)`）在 **类定义点** 拦截——适合监控尚未加载的类。
+
+**ClassLoader 维度过滤**：`targetClassLoaderHash` 与 `classloader -l` 输出的 hash 对齐，避免同名类在多 ClassLoader 场景误增强。
+
+### 9.5 TransformerManager：分层合并，而非单层 Transformer
+
+Arthas 只向 JVM 注册 **两个** 顶层 Transformer，内部再链式调用子 Transformer：
+
+| 列表 | 用途 | 注册方式 |
+|------|------|----------|
+| `reTransformers` | redefine 等前置处理 | 最先执行 |
+| `watchTransformers` | watch/monitor/tt 等 | 中间 |
+| `traceTransformers` | trace | 最后 |
+| `lazyTransformers` | 懒加载 | 独立 `lazyClassFileTransformer`，仅首次加载 |
+
+`CopyOnWriteArrayList` 保证并发注册/移除 Transformer 时的迭代安全；`destroy()` 时 `removeTransformer` 两个顶层 Transformer 并清空所有子列表。
+
+### 9.6 AdviceListenerManager：ClassLoader × 方法签名 二级索引
+
+Listener 注册 key 为 `className + methodName + methodDesc`（trace 额外含 `owner`）：
+
+```java
+// AdviceListenerManager.ClassLoaderAdviceListenerManager
+private String key(String className, String methodName, String methodDesc) {
+    return className + methodName + methodDesc;
+}
+```
+
+一级 key 是 `ClassLoader`（`ConcurrentWeakKeyHashMap`），二级是方法签名。`SpyImpl.atEnter` 回调时按 **当前类的 ClassLoader + 类名 + 方法** 查表，O(1) 定位到 `List<AdviceListener>`。
+
+后台定时任务（每 3 秒）清理已 `TERMINATED` 的 `ProcessAware` Listener，避免表膨胀。
+
+### 9.7 Spy 热路径：从业务方法到 Watch/Trace 输出
+
+完整调用链：
+
+```
+业务方法（已增强）
+  → SpyAPI.atEnter [Bootstrap, 极短静态调用]
+  → SpyImpl.atEnter
+  → AdviceListenerManager.queryAdviceListeners(loader, class, method, desc)
+  → 遍历 AdviceListener（skipAdviceListener 过滤已结束 Process）
+  → WatchAdviceListener.before / TraceAdviceListener...
+  → ExpressFactory.threadLocalExpress(advice).get("params[0]")
+  → process.appendResult(WatchModel) → ResultDistributor → Term/HTTP
+```
+
+`WatchAdviceListener` 在 `before/afterReturning/afterThrowing` 分别根据 `-b/-s/-e` 参数决定是否输出；`ThreadLocalWatch` 计算单次调用耗时；`condition-express` 不满足则静默。
+
+`AbstractTraceAdviceListener` 用 `ThreadLocal<TraceEntity>` 维护 **调用树**（`TraceTree`），`deep` 计数控制嵌套层级；仅在 `deep == 0`（根方法退出）时根据 `-n` 次数与条件表达式输出整棵树——这是 trace 相对 watch **按调用链聚合** 而非按切点逐条打印的关键。
+
+`MonitorAdviceListener` 用 `ConcurrentHashMap<Key, AtomicReference<MonitorData>>` 在内存中 **累加统计**，由 `Timer` 按 `-c` 周期批量 `appendResult(MonitorModel)`，把高频回调转为低频报告，降低 I/O 压力。
+
+### 9.8 增强命令的生命周期：Session 锁 + Process.register
+
+`EnhancerCommand.enhance()` 流程：
+
+1. `session.tryLock()` — CAS 锁，同一 Shell 会话同时只能有一个增强命令（避免并发 retransform 冲突）。  
+2. 构造 `Enhancer` + `AdviceListener`。  
+3. `process.register(listener, enhancer)` — 绑定 Process 与 Transformer。  
+4. `enhancer.enhance(inst, maxNumOfMatchedClass)` — 搜索类 + 注册 Transformer + retransform。
+
+`ProcessImpl.CommandProcessImpl.register()`：
+
+```java
+AdviceWeaver.reg(listener);           // 全局 adviceId 表
+this.transformer = transformer;     // 持有 Enhancer 引用
+```
+
+命令结束 `end()` → `unregister()` → `TransformerManager.removeTransformer` + `AdviceWeaver.unReg`。注意：**unregister 不会自动 retransform 恢复原字节码**，Spy 调用仍留在字节码中，只是 Listener 不再响应；彻底恢复需 `reset`。
+
+### 9.9 reset：基于 classBytesCache 的批量恢复
+
+```java
+// Enhancer.reset()
+for (Class<?> classInCache : classBytesCache.keySet()) {
+    if (classNameMatcher.matching(classInCache.getName())) {
+        enhanceClassSet.add(classInCache);
+    }
+}
+inst.retransformClasses(classArray);  // 无 watch/trace transformer 后，transform 返回原始逻辑
+classBytesCache.remove(resetClass);
+```
+
+`classBytesCache` 是 `WeakHashMap<Class<?>, Object>`：类被卸载后缓存项自动消失。retransform 时若对应 Transformer 已移除，`Enhancer.transform` 不再产出新字节码，JVM 恢复为 **最后一次成功 transform 前的版本链** 中的状态（实际效果为去掉 Arthas 织入的 Spy 调用）。
+
+### 9.10 类发现：Instrumentation 全量扫描 + 通配/正则
+
+`SearchUtils.searchClass` 遍历 `inst.getAllLoadedClasses()`，用 `WildcardMatcher` 或 `RegexMatcher` 匹配。`GlobalOptions.isDisableSubClass` 控制是否 `searchSubClass` 展开子类。`sc -d` 的 `code` 参数还会 `filter` 反编译内容匹配。
+
+这与增强命令共用同一套 Matcher，保证 **「搜到的类」就是「可增强的类」**。
+
+### 9.11 配置绑定：Spring 风格的 Environment
+
+`ArthasEnvironment` + `BinderUtils.inject(environment, configure)` 将 `arthas.*` 属性注入 `Configure` POJO，支持占位符解析、`arthas.config.overrideAll` 反转优先级。Attach 参数经 `FeatureCodec.DEFAULT_COMMANDLINE_CODEC` 解码后统一加 `arthas.` 前缀。
+
+### 9.12 销毁全链路（stop 命令 / shutdown hook）
+
+`ArthasBootstrap.destroy()` 顺序值得作为 attach 工具的标准参考：
+
+```
+1. arthasMcpBootstrap.shutdown()     // 先停 MCP keep-alive 线程
+2. shellServer.close()               // 关闭 Telnet/HTTP
+3. sessionManager / httpSessionManager.close()
+4. tunnelClient.stop()
+5. executorService.shutdownNow()
+6. transformerManager.destroy()      // 移除 JVM Transformer
+7. remove ClassLoader instrument transformer
+8. cleanUpSpyReference()             // SpyAPI.setNopSpy + resetArthasClassLoader
+9. shutdown Netty workerGroup
+10. loggerContext.stop()
+```
+
+`cleanUpSpyReference` 通过反射调用 `AgentBootstrap.resetArthasClassLoader()` 将 `arthasClassLoader` 置 null，使下次 attach 可重新加载 core。
+
+### 9.13 HTTP API 与 Shell 共享 Session
+
+`SessionManagerImpl` 管理的 `Session` 与 Telnet `ShellImpl` 共享 `Instrumentation`、`CommandManager`、`SharingResultDistributor`。HTTP API（`HttpApiHandler`）创建会话后执行命令，与 CLI 走同一 `ProcessImpl` 路径，因此 **行为一致**（同一 `watch` 语法、同一 JSON Model）。
+
+### 9.14 外部命令加载的防御性设计
+
+`loadExternalCommandResolver` 对外部 JAR：
+
+- `ServiceLoader.load(CommandResolver)` 发现实现  
+- 命令名不得与内置冲突（`reservedNames`）  
+- 不得重复注册同名命令  
+- 通过 `appendCommandUrls` 扩展 `ArthasClassloader` 的 URL
+
+失败时 **warn 并跳过**，不影响主流程启动。
+
+### 9.15 实现原理总览图
+
+```mermaid
+flowchart TB
+    subgraph Attach层
+        A1[arthas-boot VirtualMachine.attach]
+        A2[AgentBootstrap agentmain]
+        A3[ArthasClassloader 加载 core]
+    end
+
+    subgraph Server层
+        S1[ArthasBootstrap.bind]
+        S2[ShellServerImpl + termd]
+        S3[BuiltinCommandPack]
+    end
+
+    subgraph 增强层
+        E1[SearchUtils 匹配类]
+        E2[TransformerManager 注册 Enhancer]
+        E3[ByteKit 织入 SpyAPI 调用]
+        E4[retransformClasses]
+    end
+
+    subgraph 运行时
+        R1[业务方法执行]
+        R2[SpyAPI → SpyImpl]
+        R3[AdviceListenerManager]
+        R4[Watch/Trace/Monitor Listener]
+        R5[Express 条件/观察表达式]
+        R6[ResultModel → Term/HTTP]
+    end
+
+    subgraph 清理层
+        C1[命令结束 unregister Listener]
+        C2[reset retransform 恢复字节码]
+        C3[destroy 移除 Transformer + 释放 ClassLoader]
+    end
+
+    A1 --> A2 --> A3 --> S1
+    S1 --> S2 --> S3
+    S3 --> E1 --> E2 --> E3 --> E4
+    E4 --> R1 --> R2 --> R3 --> R4 --> R5 --> R6
+    R6 --> C1
+    C1 --> C2
+    C2 --> C3
+```
+
+---
+
+## 10. 附录：关键类索引
 
 | 类 | 路径 | 说明 |
 |----|------|------|
@@ -435,11 +740,31 @@ private static volatile AbstractSpy spyInstance = NOPSPY;
 | `TelnetConsole` | `client/.../TelnetConsole.java` | CLI 客户端 |
 | `ArthasAgent` | `arthas-agent-attach/.../ArthasAgent.java` | 进程内 attach |
 | `McpServer` | `arthas-mcp-server/.../McpServer.java` | MCP 服务构建 |
+| `SpyInterceptors` | `core/.../SpyInterceptors.java` | ByteKit 拦截器模板 |
+| `AdviceListenerManager` | `core/.../AdviceListenerManager.java` | Listener 二级索引 |
+| `ExpressFactory` | `core/.../ExpressFactory.java` | OGNL 表达式（弱引用防泄漏） |
+| `SearchUtils` | `core/.../SearchUtils.java` | 已加载类搜索 |
+| `ArthasClassloader` | `agent/.../ArthasClassloader.java` | 隔离类加载器 |
+| `TermImpl` | `core/.../TermImpl.java` | termd 终端封装 |
+| `TelnetConsole` | `client/.../TelnetConsole.java` | JLine + Telnet 客户端 |
+| `HttpTelnetTermServer` | `core/.../HttpTelnetTermServer.java` | 同端口 Telnet/HTTP |
+| `MonitorAdviceListener` | `core/.../MonitorAdviceListener.java` | 周期性聚合统计 |
+| `AbstractTraceAdviceListener` | `core/.../AbstractTraceAdviceListener.java` | 调用树 trace |
 
 ---
 
-## 10. 架构小结
+## 11. 架构小结
 
-Arthas 的本质是：**在目标 JVM 内嵌一个带 Instrumentation 的轻量 Server**，通过 **Bootstrap Spy 桥 + ByteKit 增强** 实现无侵入观测，通过 **Shell/HTTP/Tunnel/MCP** 多端接入，通过 **丰富的 JDK 工具封装** 完成诊断闭环。其工程上最值得学习的点包括：**ClassLoader 隔离 + spy 桥设计**、**Transformer 分层与懒加载**、**命令式插件 SPI**、**shade 避免依赖冲突**，以及 **从单机 CLI 到 Tunnel/MCP 的渐进式扩展**。
+Arthas 的本质是：**在目标 JVM 内嵌一个带 Instrumentation 的轻量 Server**，通过 **Bootstrap Spy 桥 + ByteKit 增强** 实现无侵入观测，通过 **Shell/HTTP/Tunnel/MCP** 多端接入，通过 **丰富的 JDK 工具封装** 完成诊断闭环。
 
-如需对某一命令或模块做更细的源码级 walkthrough，可指定模块名继续深入。
+从源码角度，最值得深入学习的实现包括：
+
+1. **三层 ClassLoader 策略**：Bootstrap 放 Spy API、Ext 子级 ArthasClassloader 放 core、业务 ClassLoader 只多几条静态调用。  
+2. **ByteKit 模板化织入 + 重复增强检测**：多命令共存而不反复改写字节码。  
+3. **TransformerManager 分层链式 transform + 懒加载双 Transformer**：兼顾已加载类与未加载类。  
+4. **AdviceListenerManager 弱引用 ClassLoader 索引 + Spy 热路径短路**：性能与内存兼顾。  
+5. **Process/Session/Job 资源绑定与 destroy 全链路**：attach 工具可卸载、可重复 attach 的工程范本。  
+6. **ExpressFactory 弱引用 ThreadLocal**：细节处体现对 ClassLoader 泄漏的警惕。  
+7. **termd + JLine + xterm 多端终端统一**：同一 Shell 语义，多种接入。
+
+如需对某一命令（如 `trace` 调用树构建）或模块（如 Tunnel 协议）做更细的 walkthrough，可指定模块名继续深入。
