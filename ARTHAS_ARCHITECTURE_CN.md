@@ -1,7 +1,8 @@
 # Arthas 项目架构与实现原理分析
 
 > 文档基于 Arthas 4.2.0 源码梳理，生成日期：2026-05-27  
-> 仓库：[alibaba/arthas](https://github.com/alibaba/arthas)
+> 仓库：[alibaba/arthas](https://github.com/alibaba/arthas)  
+> 关联文档：[ARTHAS_ENHANCE_TRACE_CN.md](./ARTHAS_ENHANCE_TRACE_CN.md)、[ARTHAS_IDEA_DEBUG_CN.md](./ARTHAS_IDEA_DEBUG_CN.md)、[ARTHAS_MCP_ANALYSIS_CN.md](./ARTHAS_MCP_ANALYSIS_CN.md)
 
 ---
 
@@ -12,7 +13,7 @@
 3. [整体架构](#3-整体架构)
 4. [核心工作流程](#4-核心工作流程)
 5. [实现原理详解](#5-实现原理详解)
-6. [技术栈与依赖](#6-技术栈与依赖)
+6. [技术栈与依赖](#6-技术栈与依赖)（含 [6.4 README Credits 第三方项目详解](#64-readme-credits-第三方项目详解)）
 7. [设计亮点](#7-设计亮点)
 8. [扩展机制](#8-扩展机制)
 9. [源码级实现原理深度剖析](#9-源码级实现原理深度剖析)
@@ -361,6 +362,187 @@ Arthas 终端并非单一库，而是 **服务端 termd + 客户端 JLine + 浏�
 ### 6.3 与 Spring Boot 集成
 
 `arthas-spring-boot-starter` 依赖 `arthas-agent-attach`，在应用启动时按配置 **静默或显式 attach**，适合开发/测试环境常驻诊断端点。
+
+### 6.4 README Credits 第三方项目详解
+
+README [Credits → Projects](https://github.com/alibaba/arthas/blob/master/README.md#projects) 列出了 8 个第三方项目。下表说明它们在 Arthas 中的**依赖形态、源码落点、服务的命令/能力**。
+
+#### 6.4.1 总览
+
+```mermaid
+flowchart TB
+    subgraph core["arthas-core（注入目标 JVM）"]
+        BK[bytekit] --> EN[Enhancer trace/watch]
+        BK --> CL[ClassLoader 增强]
+        TD[termd] --> TERM[Telnet/WebConsole 终端]
+        CR[crash shell 架构] --> SH[Shell/Job/Process]
+        CLI[alibaba/cli] --> CMD[所有 AnnotatedCommand]
+        TU[text-ui 衍生] --> VIEW[表格输出 dashboard 等]
+        MC[memorycompiler] --> MC_CMD[mc 命令]
+        AP[async-profiler] --> PROF[profiler 命令]
+    end
+    subgraph client["arthas-client（本机连接）"]
+        CN[Commons Net] --> TC[TelnetConsole]
+        JL[JLine] --> TC
+    end
+    GR[greys-anatomy] -.历史渊源.-> core
+```
+
+| 第三方项目 | Maven/形态 | 主要模块 | 直接服务的命令/能力 |
+|-----------|-----------|----------|-------------------|
+| [bytekit](https://github.com/alibaba/bytekit) | `bytekit-core` | core | trace、watch、monitor、stack、ClassLoader 增强 |
+| [greys-anatomy](https://github.com/oldmanpushcart/greys-anatomy) | 无直接依赖 | — | Spy/增强模型、attach 诊断思路的历史来源 |
+| [termd](https://github.com/alibaba/termd) | `termd-core` | core | Telnet/WebConsole 交互、Readline、Tab 补全 |
+| [crash](https://github.com/crashub/crash) | 源码抽取 | core `shell/*` | Shell/Job/Process 执行模型、管道 |
+| [cli](https://github.com/alibaba/cli) | `com.alibaba.middleware:cli` | core + client | 全部命令参数解析与 help |
+| [compiler (SkaETL)](https://github.com/skalogs/SkaETL/tree/master/compiler) | `arthas-memorycompiler` | memorycompiler → core | `mc` |
+| [Apache Commons Net](https://commons.apache.org/proper/commons-net/) | 源码内嵌 | client | `arthas-client.jar` Telnet 连接 |
+| [async-profiler](https://github.com/jvm-profiling-tools/async-profiler) | 原生 so + Java API | core + packaging | `profiler` |
+
+> **说明**：`text-ui`（`com.taobao.text`）未出现在 README Credits，但与 crash/vert.x 生态同源，用于 `dashboard`、`thread` 等命令的 ASCII 表格渲染；`jad` 使用 **CFR** 反编译，亦不在 Credits 列表中。
+
+#### 6.4.2 bytekit — 字节码增强引擎
+
+**依赖**：`core/pom.xml` → `com.alibaba:bytekit-core`
+
+**（1）观测命令插桩（trace / watch / monitor / stack / tt）**
+
+`Enhancer.transform()` 使用 ByteKit 完成字节码织入：
+
+- `DefaultInterceptorClassParser` 解析 `SpyInterceptors` 上的 `@AtEnter`、`@AtExit`、`@AtInvoke` 等注解
+- `MethodProcessor` + `InterceptorProcessor.process()` 在匹配方法中插入 `SpyAPI` 静态调用
+- `AsmUtils`、`GroupLocationFilter`、`InvokeContainLocationFilter` 做重复增强检测
+
+关键类：`core/.../advisor/Enhancer.java`、`SpyInterceptors.java`。详见 [ARTHAS_ENHANCE_TRACE_CN.md](./ARTHAS_ENHANCE_TRACE_CN.md)。
+
+**（2）ClassLoader#loadClass 增强**
+
+`ArthasBootstrap.enhanceClassLoader()` 用 ByteKit 的 `InstrumentTransformer` 将 `ClassLoader_Instrument` 织入指定 ClassLoader，解决部分容器 ClassLoader 加载不到 `java.arthas.SpyAPI` 的问题（issue #1596）：
+
+- 配置类：`core/.../server/instrument/ClassLoader_Instrument.java`（`@Instrument`）
+- 启动逻辑：`ArthasBootstrap.enhanceClassLoader()` → `Instrumentation.retransformClasses`
+
+#### 6.4.3 greys-anatomy — 历史渊源（非运行时依赖）
+
+Greys 是 Arthas 的前身，README 致谢的是**设计传承**，当前代码中无 `greys` 包名或 Maven 依赖。对应关系：
+
+| Greys 概念 | Arthas 现实现 |
+|-----------|--------------|
+| Spy 埋点 + AdviceListener | `SpyAPI` + `AdviceListenerManager` + `SpyImpl` |
+| 对目标类 retransform 增强 | `Enhancer` + `Instrumentation.retransformClasses` |
+| watch/trace 类观测命令 | `EnhancerCommand` 体系 |
+| attach 后命令行诊断 | Agent attach + Shell 交互 |
+
+#### 6.4.4 termd — 服务端终端与 Readline
+
+**依赖**：`core/pom.xml` → `com.alibaba.middleware:termd-core`（shade 进 `arthas-core`）
+
+Arthas **被 attach 的 JVM 内**的终端能力基于 `io.termd.core.*`：
+
+| termd 能力 | Arthas 类 | 作用 |
+|-----------|----------|------|
+| `TtyConnection` | `TermImpl`、`ShellImpl` | 终端 I/O 抽象 |
+| `Readline` + `Keymap` | `TermImpl` | 行编辑、历史、快捷键 |
+| `TelnetTtyConnection` | `NettyHttpTelnetTtyBootstrap`、`HttpTelnetTermServer` | Telnet 3658 |
+| `HttpTtyConnection` | `TtyWebSocketFrameHandler` | WebConsole WebSocket |
+| `Completion` | `CompletionUtils` | Tab 补全长前缀 |
+
+`TermImpl` 将 termd Readline 接到 Arthas `Handler` 回调链，是服务端交互的核心粘合层。
+
+> **区分**：`arthas-client.jar` 使用 **JLine** 做本地行编辑，**不用** termd；termd 仅运行在 core 服务端。
+
+#### 6.4.5 crash — Shell 执行模型（文本 UI 架构）
+
+README 指向 [crash 1.3.2/shell](https://github.com/crashub/crash/tree/1.3.2/shell)。Arthas 无 crash jar 依赖，而是**抽取并演化**其 shell 架构。`core/.../shell/` 下大量类作者为 Julien Viet（crash/vert.x 作者）。
+
+| crash shell 概念 | Arthas 实现 | 职责 |
+|-----------------|------------|------|
+| Shell 会话 | `ShellImpl` | 一个 Telnet/Web 连接 = 一个 Shell |
+| Job 管理 | `JobControllerImpl` | 前台/后台任务、job id |
+| Process 执行 | `ProcessImpl` | 单条命令生命周期、stdin/stdout |
+| Handler 链 | `GrepHandler`、`TeeHandler`、`RedirectHandler` | `\|`、`>`、`tee` 等管道语义 |
+| CliToken 分词 | `CliTokens`、`CliTokenImpl` | 输入行拆 token |
+
+典型执行路径：
+
+```text
+用户输入 → ShellImpl.readline (termd)
+        → CliTokens.tokenize
+        → JobControllerImpl.createJob
+        → ProcessImpl 执行 Command
+        → AnnotatedCommandImpl → 具体 *Command.process()
+```
+
+**表格渲染**使用 `com.taobao.text:text-ui`（`TableElement`、`RenderUtil`），见于 `DashboardView`、`ThreadView`、`MonitorView` 等，属于 README 所述「文本 UI 渲染」的具体实现之一。
+
+#### 6.4.6 cli（alibaba/cli）— 命令行参数框架
+
+**依赖**：`core`、`client` 均依赖 `com.alibaba.middleware:cli`（源自 vert.x cli）。
+
+**用法**：
+
+1. 各命令类用 `@Name`、`@Argument`、`@Option` 声明参数（约 40+ 个 `AnnotatedCommand` 子类）
+2. `AnnotatedCommandImpl` 构造时 `CLIConfigurator.define(clazz)` 生成元数据，执行时 `CLIConfigurator.inject` 注入参数
+3. `HelpCommand` / `HelpView` 生成 usage；各命令 `complete()` 配合 Tab 补全
+4. `TelnetConsole` 解析客户端 `-c`、`-f`、`-t` 等参数
+
+关键类：`AnnotatedCommandImpl`、`AnnotatedCommand`、`HelpView`。
+
+#### 6.4.7 compiler（SkaETL）— 内存编译器
+
+**来源**：`memorycompiler` 模块 fork 自 [skalogs/SkaETL/compiler](https://github.com/skalogs/SkaETL/tree/master/compiler)（`memorycompiler/README.md`）。
+
+**依赖**：`arthas-memorycompiler` → 被 `arthas-core` 引用。
+
+**用在哪**：`mc` 命令（`MemoryCompilerCommand`）调用 `DynamicCompiler`：
+
+- 封装 `javax.tools.JavaCompiler`（`ToolProvider.getSystemJavaCompiler()`）
+- `.java` 源码经 `StringSource` 在内存编译为 `.class`
+- 通过 `DynamicClassLoader` 加载，供后续 `redefine` / `retransform` 热更新
+
+MCP 侧 `MemoryCompilerTool` 封装同一能力。
+
+#### 6.4.8 Apache Commons Net — Telnet 客户端
+
+**形态**：源码**内嵌**于 `client/src/main/java/org/apache/commons/net/`（约 26 个类），非独立 Maven 依赖。
+
+**用在哪**：仅 `arthas-client.jar` 的 `TelnetConsole`：
+
+- `TelnetClient` 连接服务端 Telnet 端口（默认 3658）
+- `WindowSizeOptionHandler` 协商终端窗口大小（NAWS）
+- 配合 JLine `ConsoleReader` 做本地行编辑
+
+服务端 Telnet 由 **termd + Netty** 实现，不使用 Commons Net。
+
+#### 6.4.9 async-profiler — CPU/内存火焰图
+
+**形态**：
+
+- 发布包 `async-profiler/` 目录下的原生库（`.so` / `.dylib`）
+- Java 封装 `core/.../one/profiler/AsyncProfiler.java`
+
+**用在哪**：`profiler` 命令（`ProfilerCommand`）：
+
+1. 从 `arthas-core.jar` 同目录加载对应平台 `libasyncProfiler*.so/dylib`
+2. `AsyncProfiler.getInstance(libPath)` 加载 JNI
+3. 传递 `start` / `stop` / `resume` 等参数给 native agent
+4. Arthas 侧做 HTML/Markdown 等输出后处理
+
+与 bytekit、termd 无耦合，是独立的 native 采样能力。
+
+#### 6.4.10 命令与第三方项目对照（速查）
+
+| 命令/能力 | 涉及的第三方 |
+|----------|-------------|
+| trace / watch / monitor / stack / tt | **bytekit** + **cli** + crash shell |
+| dashboard / thread / monitor 表格 | crash 架构 + **text-ui** |
+| 终端交互、Tab 补全、历史 | **termd** |
+| `mc` | **compiler (SkaETL)** + **cli** |
+| `jad` | **cli**（反编译用 CFR，不在 README Credits） |
+| `profiler` | **async-profiler** + **cli** |
+| `java -jar arthas-client.jar` | **Commons Net** + **cli** + JLine |
+| 多 ClassLoader 下 Spy 加载 | **bytekit** `InstrumentTransformer` |
+| 整体 Spy/增强模型 | 源于 **greys**，现由 bytekit 实现 |
 
 ---
 
