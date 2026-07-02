@@ -2,7 +2,7 @@
 
 > 文档基于 Arthas 4.2.0 源码梳理，生成日期：2026-05-27  
 > 仓库：[alibaba/arthas](https://github.com/alibaba/arthas)  
-> 关联文档：[ARTHAS_ARCHITECTURE_CN.md](./ARTHAS_ARCHITECTURE_CN.md)、[ARTHAS_IDEA_DEBUG_CN.md](./ARTHAS_IDEA_DEBUG_CN.md)
+> 关联文档：[ARTHAS_ARCHITECTURE_CN.md](Arthas%20项目架构与实现原理分析.md)、[ARTHAS_IDEA_DEBUG_CN.md](在本地%20IDEA%20调试%20Arthas%20源码指南.md)
 
 ---
 
@@ -644,7 +644,7 @@ TraceEntity (ThreadLocal)
 
 ## 13. IDEA 调试断点速查
 
-本地调试流程见 [ARTHAS_IDEA_DEBUG_CN.md](./ARTHAS_IDEA_DEBUG_CN.md)。
+本地调试流程见 [ARTHAS_IDEA_DEBUG_CN.md](在本地%20IDEA%20调试%20Arthas%20源码指南.md)。
 
 | 阶段 | 推荐断点 |
 |------|----------|

@@ -638,10 +638,10 @@ arthas.mcpEndpoint=/custom-mcp-path
 
 ## 14. 参考资料
 
-- [Arthas MCP Server 官方文档](../site/docs/doc/mcp-server.md)
-- [arthas-mcp-server README](../arthas-mcp-server/README.md)
+- [Arthas MCP Server 官方文档](site/docs/doc/mcp-server.md)
+- [arthas-mcp-server README](arthas-mcp-server/README.md)
 - [MCP 规范](https://modelcontextprotocol.io/)
-- [ARTHAS_ARCHITECTURE_CN.md](../ARTHAS_ARCHITECTURE_CN.md)
+- [ARTHAS_ARCHITECTURE_CN.md](Arthas%20项目架构与实现原理分析.md)
 
 ---
 

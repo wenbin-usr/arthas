@@ -3,7 +3,7 @@
 > 基于 Arthas 4.2.x 源码与官方 [Issue #222](https://github.com/alibaba/arthas/issues/222)、[CONTRIBUTING.md](CONTRIBUTING.md) 整理  
 > 适用环境：Windows / macOS / Linux + IntelliJ IDEA  
 > 生成日期：2026-05-27  
-> 相关文档：[ARTHAS_ARCHITECTURE_CN.md](ARTHAS_ARCHITECTURE_CN.md)
+> 相关文档：[ARTHAS_ARCHITECTURE_CN.md](Arthas%20项目架构与实现原理分析.md)
 
 ---
 
@@ -472,7 +472,7 @@ WatchCommand / WatchTool
 
 - [Debug Arthas In IDEA (Issue #222)](https://github.com/alibaba/arthas/issues/222)
 - [CONTRIBUTING.md — Debug / as-package.sh](CONTRIBUTING.md)
-- 架构与 ClassLoader：[ARTHAS_ARCHITECTURE_CN.md](ARTHAS_ARCHITECTURE_CN.md)
+- 架构与 ClassLoader：[ARTHAS_ARCHITECTURE_CN.md](Arthas%20项目架构与实现原理分析.md)
 
 ---
 

@@ -694,6 +694,6 @@ flowchart TB
 
 ## 相关文档
 
-- [ARTHAS_ARCHITECTURE_CN.md](ARTHAS_ARCHITECTURE_CN.md) — 项目整体架构  
+- [ARTHAS_ARCHITECTURE_CN.md](Arthas%20项目架构与实现原理分析.md) — 项目整体架构  
 - [site/docs/doc/mcp-server.md](site/docs/doc/mcp-server.md) — 用户配置与 AI 客户端接入  
 - [MCP Tasks Specification](https://modelcontextprotocol.io/specification/2025-11-25/basic/utilities/tasks) — Task 协议规范

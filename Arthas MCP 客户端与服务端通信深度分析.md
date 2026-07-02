@@ -3,7 +3,7 @@
 > 基于 Arthas 4.2.2 源码与本机实测（`http://127.0.0.1:8563/mcp`）梳理  
 > 生成日期：2026-05-27  
 > 相关模块：`arthas-mcp-server`、`core/.../mcp/`  
-> 姊妹文档：[ARTHAS_MCP_ANALYSIS_CN.md](ARTHAS_MCP_ANALYSIS_CN.md)、[ARTHAS_ARCHITECTURE_CN.md](ARTHAS_ARCHITECTURE_CN.md)
+> 姊妹文档：[ARTHAS_MCP_ANALYSIS_CN.md](Arthas%20MCP%20源码深度分析.md)、[ARTHAS_ARCHITECTURE_CN.md](Arthas%20项目架构与实现原理分析.md)
 
 ---
 

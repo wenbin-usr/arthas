@@ -2,7 +2,7 @@
 
 > 文档基于 Arthas 4.2.0 源码梳理，生成日期：2026-05-27  
 > 仓库：[alibaba/arthas](https://github.com/alibaba/arthas)  
-> 关联文档：[ARTHAS_ENHANCE_TRACE_CN.md](./ARTHAS_ENHANCE_TRACE_CN.md)、[ARTHAS_IDEA_DEBUG_CN.md](./ARTHAS_IDEA_DEBUG_CN.md)、[ARTHAS_MCP_ANALYSIS_CN.md](./ARTHAS_MCP_ANALYSIS_CN.md)
+> 关联文档：[ARTHAS_ENHANCE_TRACE_CN.md](Arthas%20字节码增强与%20trace%20命令源码深度分析.md)、[ARTHAS_IDEA_DEBUG_CN.md](在本地%20IDEA%20调试%20Arthas%20源码指南.md)、[ARTHAS_MCP_ANALYSIS_CN.md](Arthas%20MCP%20源码深度分析.md)
 
 ---
 
@@ -413,7 +413,7 @@ flowchart TB
 - `MethodProcessor` + `InterceptorProcessor.process()` 在匹配方法中插入 `SpyAPI` 静态调用
 - `AsmUtils`、`GroupLocationFilter`、`InvokeContainLocationFilter` 做重复增强检测
 
-关键类：`core/.../advisor/Enhancer.java`、`SpyInterceptors.java`。详见 [ARTHAS_ENHANCE_TRACE_CN.md](./ARTHAS_ENHANCE_TRACE_CN.md)。
+关键类：`core/.../advisor/Enhancer.java`、`SpyInterceptors.java`。详见 [ARTHAS_ENHANCE_TRACE_CN.md](Arthas%20字节码增强与%20trace%20命令源码深度分析.md)。
 
 **（2）ClassLoader#loadClass 增强**
 
