@@ -44,58 +44,58 @@ flowchart LR
 
 ```mermaid
 flowchart TB
-    Start(["用户: java -jar arthas-boot.jar <pid>"])
+    Start(["用户: java -jar arthas-boot.jar &lt;pid&gt;"])
 
     subgraph Phase1["阶段一：客户端准备 (arthas-boot)"]
-        P1A[解析 CLI 参数]
-        P1B[解析/下载 Arthas 发行包\n~/.arthas/lib/{version}/arthas/]
-        P1C{目标进程已监听\nTelnet 端口?}
-        P1D[组装 attach 参数\n-pid -core -agent -telnet-port ...]
-        P1E[ProcessUtils.startArthasCore\n启动子进程运行 arthas-core.jar]
+        P1A["解析 CLI 参数"]
+        P1B["解析/下载 Arthas 发行包<br/>~/.arthas/lib/(version)/arthas/"]
+        P1C{"目标进程已监听<br/>Telnet 端口?"}
+        P1D["组装 attach 参数<br/>-pid -core -agent -telnet-port ..."]
+        P1E["ProcessUtils.startArthasCore<br/>启动子进程运行 arthas-core.jar"]
     end
 
     subgraph Phase2["阶段二：Attach (arthas-core.jar)"]
-        P2A[Arthas.main 解析参数]
-        P2B[VirtualMachine.attach(pid)]
-        P2C["loadAgent(arthas-agent.jar,\n  arthasCoreJar + ';' + configure)"]
-        P2D[virtualMachine.detach]
+        P2A["Arthas.main 解析参数"]
+        P2B["VirtualMachine.attach(pid)"]
+        P2C["loadAgent(arthas-agent.jar,<br/>arthasCoreJar + ';' + configure)"]
+        P2D["virtualMachine.detach"]
     end
 
     subgraph Phase3["阶段三：Agent 入口 (目标 JVM)"]
-        P3A[AgentBootstrap.agentmain]
-        P3B{SpyAPI 已初始化?}
-        P3C[创建 ArthasClassloader\n加载 arthas-core.jar]
-        P3D[arthas-binding-thread]
+        P3A["AgentBootstrap.agentmain"]
+        P3B{"SpyAPI 已初始化?"}
+        P3C["创建 ArthasClassloader<br/>加载 arthas-core.jar"]
+        P3D["arthas-binding-thread"]
         P3E["反射调用 ArthasBootstrap.getInstance(inst, args)"]
     end
 
     subgraph Phase4["阶段四：ArthasBootstrap 构造"]
-        P4A[initFastjson]
-        P4B[initSpy: append arthas-spy.jar\n到 BootstrapClassLoader]
-        P4C[initArthasEnvironment\n加载 arthas.properties]
-        P4D[initLogger / enhanceClassLoader / initBeans]
-        P4E[bind(configure)]
-        P4F[创建命令执行线程池\n注册 ShutdownHook]
+        P4A["initFastjson"]
+        P4B["initSpy: append arthas-spy.jar<br/>到 BootstrapClassLoader"]
+        P4C["initArthasEnvironment<br/>加载 arthas.properties"]
+        P4D["initLogger / enhanceClassLoader / initBeans"]
+        P4E["bind(configure)"]
+        P4F["创建命令执行线程池<br/>注册 ShutdownHook"]
     end
 
     subgraph Phase5["阶段五：bind() 启动服务"]
-        P5A[随机端口 / Tunnel Client]
-        P5B[ShellServerImpl + 注册命令]
-        P5C[注册 3658 HttpTelnetTermServer\n8563 HttpTermServer]
-        P5D[shellServer.listen 绑定 Netty]
-        P5E[HttpApiHandler / MCP Server]
-        P5F[SpyAPI.init / UserStatUtil]
+        P5A["随机端口 / Tunnel Client"]
+        P5B["ShellServerImpl + 注册命令"]
+        P5C["注册 3658 HttpTelnetTermServer<br/>8563 HttpTermServer"]
+        P5D["shellServer.listen 绑定 Netty"]
+        P5E["HttpApiHandler / MCP Server"]
+        P5F["SpyAPI.init / UserStatUtil"]
     end
 
     subgraph Phase6["阶段六：客户端连接 (可选)"]
-        P6A[arthas-client TelnetConsole\n连接 127.0.0.1:3658]
+        P6A["arthas-client TelnetConsole<br/>连接 127.0.0.1:3658"]
     end
 
     Start --> P1A --> P1B --> P1C
-    P1C -->|是, 同 pid| SkipAttach[跳过 attach]
+    P1C -->|"是, 同 pid"| SkipAttach["跳过 attach"]
     P1C -->|否| P1D --> P1E --> P2A --> P2B --> P2C --> P2D
     P2D --> P3A --> P3B
-    P3B -->|是| AlreadyRunning[跳过, 已运行]
+    P3B -->|是| AlreadyRunning["跳过, 已运行"]
     P3B -->|否| P3C --> P3D --> P3E --> P4A
     P4A --> P4B --> P4C --> P4D --> P4E --> P4F
     P4E --> P5A --> P5B --> P5C --> P5D --> P5E --> P5F
@@ -205,17 +205,31 @@ boolean isBind = (Boolean) bootstrapClass.getMethod("isBind").invoke(bootstrap);
 
 ```mermaid
 flowchart TD
-    A["ArthasBootstrap 构造"] --> B["1. initFastjson()\n配置 JSON 序列化"]
-    B --> C["2. initSpy()\nappend arthas-spy.jar 到 BootstrapClassLoader"]
-    C --> D["3. initArthasEnvironment(args)\n合并配置 → Configure"]
-    D --> E["4. 创建 outputPath 目录\n默认 arthas-output"]
-    E --> F["5. LogUtil.initLogger()\n初始化 Logback"]
-    F --> G["6. enhanceClassLoader()\n可选增强 ClassLoader#loadClass"]
-    G --> H["7. initBeans()\nResultViewResolver / HistoryManager"]
-    H --> I["8. bind(configure)\n★ 核心：启动所有服务"]
-    I --> J["9. 创建 ScheduledExecutorService\n命令执行线程池"]
-    J --> K["10. 注册 ShutdownHook\nRuntime.addShutdownHook"]
-    K --> L["11. new TransformerManager(instrumentation)"]
+    A["ArthasBootstrap 构造"]
+
+    subgraph Col1[" "]
+        direction TB
+        B["1. initFastjson()<br/>配置 JSON 序列化"]
+        C["2. initSpy()<br/>append arthas-spy.jar 到 BootstrapClassLoader"]
+        D["3. initArthasEnvironment(args)<br/>合并配置 → Configure"]
+        E["4. 创建 outputPath 目录<br/>默认 arthas-output"]
+        F["5. LogUtil.initLogger()<br/>初始化 Logback"]
+        G["6. enhanceClassLoader()<br/>可选增强 ClassLoader#loadClass"]
+    end
+
+    subgraph Col2[" "]
+        direction TB
+        H["7. initBeans()<br/>ResultViewResolver / HistoryManager"]
+        I["8. bind(configure)<br/>★ 核心：启动所有服务"]
+        J["9. 创建 ScheduledExecutorService<br/>命令执行线程池"]
+        K["10. 注册 ShutdownHook<br/>Runtime.addShutdownHook"]
+        L["11. new TransformerManager(instrumentation)"]
+    end
+
+    A --> B
+    B --> C --> D --> E --> F --> G
+    G --> H
+    H --> I --> J --> K --> L
 ```
 
 ### 6.1 配置加载优先级
@@ -406,21 +420,21 @@ sequenceDiagram
     participant Client as arthas-client
 
     User->>Boot: java -jar arthas-boot.jar pid
-    Boot->>Boot: 准备 ~/.arthas/lib/.../arthas/
-    Boot->>Core: 子进程 java -jar arthas-core.jar -pid ...
+    Boot->>Boot: 准备 arthas 发行包
+    Boot->>Core: 子进程运行 arthas-core.jar -pid
     Core->>VM: attach(pid)
-    Core->>VM: loadAgent(agent.jar, core.jar;config)
+    Core->>VM: loadAgent(agent.jar, config)
     VM->>Agent: agentmain(args, Instrumentation)
     Agent->>Agent: ArthasClassloader + binding-thread
     Agent->>AB: getInstance(inst, args)
     AB->>AB: initSpy / initEnv / initLogger
-    AB->>Netty: bind() → listen
+    AB->>Netty: bind 并 listen
     AB->>AB: SpyAPI.init()
-    Agent-->>Core: isBind() = true
-    Core-->>Boot: 子进程 exit 0
-    Boot->>Client: TelnetConsole → 3658
+    Agent-->>Core: isBind 成功
+    Core-->>Boot: 子进程退出
+    Boot->>Client: TelnetConsole 连接 3658
     Client->>Netty: Telnet 连接
-    Netty->>Client: [arthas@pid]$ 提示符
+    Netty->>Client: 返回 arthas 提示符
 ```
 
 ---
