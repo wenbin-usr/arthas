@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1680 1420" font-family="'Segoe UI','PingFang SC','Microsoft YaHei','Helvetica Neue',Arial,sans-serif">
+<svg xmlns="http://www.w3.org/2000/svg" width="1680" height="1376" viewBox="0 0 1680 1376" font-family="'Segoe UI','PingFang SC','Microsoft YaHei','Helvetica Neue',Arial,sans-serif">
   <title>Arthas 架构图 / Arthas Architecture</title>
   <desc>Based on Arthas source code: layered view from user access methods down to the diagnosed JVM, including bootstrap, command system, bytecode enhancement, spy bridge, tunnel server, MCP server and support modules.</desc>
 
@@ -81,7 +81,7 @@
     <path d="M0 0 H1680" stroke="#dbe2ec" stroke-width="0.5" transform="translate(0,600)"/>
     <path d="M0 0 H1680" stroke="#dbe2ec" stroke-width="0.5" transform="translate(0,800)"/>
     <path d="M0 0 H1680" stroke="#dbe2ec" stroke-width="0.5" transform="translate(0,1000)"/>
-    <path d="M0 0 H1680" stroke="#dbe2ec" stroke-width="0.5" transform="translate(0,1200)"/>
+    <path d="M0 0 H1680" stroke="#dbe2ec" stroke-width="0.5" transform="translate(0,1156)"/>
   </g>
 
   <!-- ========== Title ========== -->
@@ -164,16 +164,16 @@
       <text x="1300" y="384" font-size="11" fill="#6d28d9" font-style="italic">基于 tunnel-common 协议</text>
     </g>
     <!-- arrow down -->
-    <line x1="840" y1="408" x2="840" y2="430" stroke="#7c3aed" stroke-width="1.6" marker-end="url(#arrPurple)"/>
+    <line x1="840" y1="408" x2="840" y2="422" stroke="#7c3aed" stroke-width="1.6" marker-end="url(#arrPurple)"/>
   </g>
 
   <!-- ========== LAYER 4: TARGET JVM CONTAINER ========== -->
   <g id="target-jvm">
-    <rect x="24" y="424" width="1632" height="760" rx="18" fill="#ffffff" fill-opacity="0.55" stroke="#94a3b8" stroke-width="1.6" stroke-dasharray="8 5"/>
+    <rect x="24" y="424" width="1632" height="712" rx="18" fill="#ffffff" fill-opacity="0.55" stroke="#94a3b8" stroke-width="1.6" stroke-dasharray="8 5"/>
     <!-- Container label tab -->
     <rect x="48" y="412" width="380" height="32" rx="6" fill="#475569"/>
     <text x="62" y="434" font-size="14" font-weight="700" fill="#fff">Target JVM · HotSpot · 被诊断进程</text>
-    <text x="338" y="434" font-size="11" fill="#cbd5e1" text-anchor="end">Attach by PID</text>
+    <text x="418" y="434" font-size="11" fill="#cbd5e1" text-anchor="end">Attach by PID</text>
   </g>
 
   <!-- ===== 4a: Bootstrap & Services ===== -->
@@ -321,13 +321,13 @@
   <g id="flow-command">
     <path d="M840,230 C840,250 840,265 840,272" fill="none" stroke="#e11d48" stroke-width="0" opacity="0"/>
     <!-- Telnet → Bootstrap -->
-    <path d="M630,308 C630,360 630,420 630,470" fill="none" stroke="#e11d48" stroke-width="2.2" stroke-dasharray="2 5" opacity="0.65"/>
+    <path d="M630,308 C630,360 630,420 630,470" fill="none" stroke="#e11d48" stroke-width="2.2" stroke-dasharray="2 5" opacity="0.65" marker-end="url(#arrRose)"/>
     <!-- Web UI → Bootstrap -->
-    <path d="M920,308 C920,360 920,420 920,470" fill="none" stroke="#e11d48" stroke-width="2.2" stroke-dasharray="2 5" opacity="0.65"/>
+    <path d="M920,308 C920,360 920,420 920,470" fill="none" stroke="#e11d48" stroke-width="2.2" stroke-dasharray="2 5" opacity="0.65" marker-end="url(#arrRose)"/>
     <!-- MCP → Bootstrap (curved) -->
-    <path d="M1220,308 C1220,360 1220,420 1220,470" fill="none" stroke="#e11d48" stroke-width="2.2" stroke-dasharray="2 5" opacity="0.65"/>
+    <path d="M1220,308 C1220,360 1220,420 1220,470" fill="none" stroke="#e11d48" stroke-width="2.2" stroke-dasharray="2 5" opacity="0.65" marker-end="url(#arrRose)"/>
     <!-- CLI → Attach → Bootstrap (via Attach API) -->
-    <path d="M140,308 C140,360 140,420 200,470" fill="none" stroke="#e11d48" stroke-width="2.2" stroke-dasharray="2 5" opacity="0.65"/>
+    <path d="M140,308 C140,360 140,420 200,470" fill="none" stroke="#e11d48" stroke-width="2.2" stroke-dasharray="2 5" opacity="0.65" marker-end="url(#arrRose)"/>
   </g>
 
   <!-- Internal arrows between sub-layers -->
@@ -350,7 +350,7 @@
   </g>
 
   <!-- ========== LAYER 5: SUPPORT MODULES ========== -->
-  <g id="layer-support">
+  <g id="layer-support" transform="translate(0,-44)">
     <text x="40" y="1210" font-size="13" font-weight="700" fill="#475569" letter-spacing="1">⑨ 支撑模块 · SUPPORT MODULES</text>
 
     <g filter="url(#shadowSoft)">
@@ -392,7 +392,7 @@
   </g>
 
   <!-- ========== LEGEND ========== -->
-  <g id="legend">
+  <g id="legend" transform="translate(0,-44)">
     <rect x="40" y="1320" width="1600" height="78" rx="10" fill="#ffffff" fill-opacity="0.7" stroke="#cbd5e1" stroke-width="1"/>
     <text x="56" y="1346" font-size="12.5" font-weight="700" fill="#0f172a">图例 · LEGEND</text>
 
@@ -400,7 +400,7 @@
     <line x1="160" y1="1362" x2="220" y2="1362" stroke="#475569" stroke-width="1.4" marker-end="url(#arr)"/>
     <text x="228" y="1366" font-size="11" fill="#334155">内部调用 / 流转</text>
 
-    <line x1="370" y1="1362" x2="430" y2="1362" stroke="#e11d48" stroke-width="2.2" stroke-dasharray="2 5" opacity="0.85"/>
+    <line x1="370" y1="1362" x2="430" y2="1362" stroke="#e11d48" stroke-width="2.2" stroke-dasharray="2 5" opacity="0.85" marker-end="url(#arrRose)"/>
     <text x="438" y="1366" font-size="11" fill="#334155">命令触发数据流</text>
 
     <line x1="600" y1="1362" x2="660" y2="1362" stroke="#ea580c" stroke-width="1.8" stroke-dasharray="5 4" marker-end="url(#arrOrange)"/>
