@@ -1,0 +1,426 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1680 1420" font-family="'Segoe UI','PingFang SC','Microsoft YaHei','Helvetica Neue',Arial,sans-serif">
+  <title>Arthas 架构图 / Arthas Architecture</title>
+  <desc>Based on Arthas source code: layered view from user access methods down to the diagnosed JVM, including bootstrap, command system, bytecode enhancement, spy bridge, tunnel server, MCP server and support modules.</desc>
+
+  <defs>
+    <!-- Background gradient -->
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#f7fafc"/>
+      <stop offset="50%" stop-color="#eef2f7"/>
+      <stop offset="100%" stop-color="#e9eef5"/>
+    </linearGradient>
+
+    <!-- Layer gradients -->
+    <linearGradient id="gUser" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#818cf8"/><stop offset="100%" stop-color="#6366f1"/>
+    </linearGradient>
+    <linearGradient id="gProto" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#fbbf24"/><stop offset="100%" stop-color="#f59e0b"/>
+    </linearGradient>
+    <linearGradient id="gTunnel" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#a78bfa"/><stop offset="100%" stop-color="#8b5cf6"/>
+    </linearGradient>
+    <linearGradient id="gBoot" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#60a5fa"/><stop offset="100%" stop-color="#3b82f6"/>
+    </linearGradient>
+    <linearGradient id="gCmd" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#2dd4bf"/><stop offset="100%" stop-color="#14b8a6"/>
+    </linearGradient>
+    <linearGradient id="gEnh" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#fb7185"/><stop offset="100%" stop-color="#f43f5e"/>
+    </linearGradient>
+    <linearGradient id="gSpy" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#fb923c"/><stop offset="100%" stop-color="#f97316"/>
+    </linearGradient>
+    <linearGradient id="gApp" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#94a3b8"/><stop offset="100%" stop-color="#64748b"/>
+    </linearGradient>
+    <linearGradient id="gSupport" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#cbd5e1"/><stop offset="100%" stop-color="#94a3b8"/>
+    </linearGradient>
+
+    <!-- Soft drop shadow -->
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur in="SourceAlpha" stdDeviation="3"/>
+      <feOffset dx="0" dy="3" result="offsetblur"/>
+      <feComponentTransfer><feFuncA type="linear" slope="0.18"/></feComponentTransfer>
+      <feMerge><feMergeNode/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <filter id="shadowSoft" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur in="SourceAlpha" stdDeviation="2"/>
+      <feOffset dx="0" dy="2" result="offsetblur"/>
+      <feComponentTransfer><feFuncA type="linear" slope="0.10"/></feComponentTransfer>
+      <feMerge><feMergeNode/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+
+    <!-- Arrow markers -->
+    <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#475569"/>
+    </marker>
+    <marker id="arrLight" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#64748b"/>
+    </marker>
+    <marker id="arrRose" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#e11d48"/>
+    </marker>
+    <marker id="arrOrange" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#ea580c"/>
+    </marker>
+    <marker id="arrPurple" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#7c3aed"/>
+    </marker>
+  </defs>
+
+  <!-- Background -->
+  <rect width="1680" height="1420" fill="url(#bg)"/>
+  <!-- Subtle grid pattern -->
+  <g opacity="0.35">
+    <path d="M0 0 H1680" stroke="#dbe2ec" stroke-width="0.5" transform="translate(0,200)"/>
+    <path d="M0 0 H1680" stroke="#dbe2ec" stroke-width="0.5" transform="translate(0,400)"/>
+    <path d="M0 0 H1680" stroke="#dbe2ec" stroke-width="0.5" transform="translate(0,600)"/>
+    <path d="M0 0 H1680" stroke="#dbe2ec" stroke-width="0.5" transform="translate(0,800)"/>
+    <path d="M0 0 H1680" stroke="#dbe2ec" stroke-width="0.5" transform="translate(0,1000)"/>
+    <path d="M0 0 H1680" stroke="#dbe2ec" stroke-width="0.5" transform="translate(0,1200)"/>
+  </g>
+
+  <!-- ========== Title ========== -->
+  <g>
+    <text x="840" y="56" text-anchor="middle" font-size="34" font-weight="700" fill="#0f172a">Arthas 架构图</text>
+    <text x="840" y="86" text-anchor="middle" font-size="15" fill="#475569" letter-spacing="2">Alibaba Java 诊断利器 · 源码模块视图 · Source-based Architecture</text>
+    <line x1="640" y1="98" x2="1040" y2="98" stroke="#94a3b8" stroke-width="1.2" opacity="0.5"/>
+  </g>
+
+  <!-- ========== LAYER 1: USER ACCESS ========== -->
+  <g id="layer-user">
+    <text x="40" y="135" font-size="13" font-weight="700" fill="#4338ca" letter-spacing="1">① 用户接入层 · USER ACCESS</text>
+    <!-- Card 1: CLI -->
+    <g filter="url(#shadowSoft)">
+      <rect x="40" y="145" width="380" height="84" rx="10" fill="#eef2ff" stroke="#6366f1" stroke-width="1.2"/>
+      <rect x="40" y="145" width="6" height="84" rx="3" fill="url(#gUser)"/>
+      <text x="62" y="172" font-size="16" font-weight="700" fill="#1e1b4b">CLI 启动</text>
+      <text x="62" y="194" font-size="12" fill="#475569">as.sh / as.bat · arthas-boot.jar</text>
+      <text x="62" y="212" font-size="11" fill="#64748b">列出 JVM 进程 → Attach 注入 agent</text>
+    </g>
+    <!-- Card 2: Web UI -->
+    <g filter="url(#shadowSoft)">
+      <rect x="440" y="145" width="380" height="84" rx="10" fill="#eef2ff" stroke="#6366f1" stroke-width="1.2"/>
+      <rect x="440" y="145" width="6" height="84" rx="3" fill="url(#gUser)"/>
+      <text x="462" y="172" font-size="16" font-weight="700" fill="#1e1b4b">Web 控制台</text>
+      <text x="462" y="194" font-size="12" fill="#475569">web-ui · Vue + xterm.js</text>
+      <text x="462" y="212" font-size="11" fill="#64748b">浏览器实时终端 · 结果可视化</text>
+    </g>
+    <!-- Card 3: Telnet -->
+    <g filter="url(#shadowSoft)">
+      <rect x="840" y="145" width="380" height="84" rx="10" fill="#eef2ff" stroke="#6366f1" stroke-width="1.2"/>
+      <rect x="840" y="145" width="6" height="84" rx="3" fill="url(#gUser)"/>
+      <text x="862" y="172" font-size="16" font-weight="700" fill="#1e1b4b">Telnet 客户端</text>
+      <text x="862" y="194" font-size="12" fill="#475569">client 模块 · JLine 终端</text>
+      <text x="862" y="212" font-size="11" fill="#64748b">交互式会话 · 批量命令脚本</text>
+    </g>
+    <!-- Card 4: MCP -->
+    <g filter="url(#shadowSoft)">
+      <rect x="1240" y="145" width="400" height="84" rx="10" fill="#eef2ff" stroke="#6366f1" stroke-width="1.2"/>
+      <rect x="1240" y="145" width="6" height="84" rx="3" fill="url(#gUser)"/>
+      <text x="1262" y="172" font-size="16" font-weight="700" fill="#1e1b4b">AI / IDE 客户端</text>
+      <text x="1262" y="194" font-size="12" fill="#475569">Model Context Protocol</text>
+      <text x="1262" y="212" font-size="11" fill="#64748b">Claude / Cursor / IDE 调用 Arthas 工具</text>
+    </g>
+  </g>
+
+  <!-- ========== LAYER 2: PROTOCOLS ========== -->
+  <g id="layer-proto">
+    <text x="40" y="262" font-size="13" font-weight="700" fill="#b45309" letter-spacing="1">② 通信协议层 · PROTOCOLS</text>
+    <g filter="url(#shadowSoft)">
+      <rect x="40" y="272" width="200" height="34" rx="17" fill="url(#gProto)"/>
+      <text x="140" y="294" text-anchor="middle" font-size="12" font-weight="600" fill="#fff">JVM Attach API</text>
+    </g>
+    <g filter="url(#shadowSoft)">
+      <rect x="260" y="272" width="220" height="34" rx="17" fill="url(#gProto)"/>
+      <text x="370" y="294" text-anchor="middle" font-size="12" font-weight="600" fill="#fff">Telnet :3658</text>
+    </g>
+    <g filter="url(#shadowSoft)">
+      <rect x="500" y="272" width="260" height="34" rx="17" fill="url(#gProto)"/>
+      <text x="630" y="294" text-anchor="middle" font-size="12" font-weight="600" fill="#fff">HTTP / WebSocket :8563</text>
+    </g>
+    <g filter="url(#shadowSoft)">
+      <rect x="780" y="272" width="280" height="34" rx="17" fill="url(#gProto)"/>
+      <text x="920" y="294" text-anchor="middle" font-size="12" font-weight="600" fill="#fff">WebSocket Tunnel</text>
+    </g>
+    <g filter="url(#shadowSoft)">
+      <rect x="1080" y="272" width="280" height="34" rx="17" fill="url(#gProto)"/>
+      <text x="1220" y="294" text-anchor="middle" font-size="12" font-weight="600" fill="#fff">MCP  /mcp  (SSE / Streamable)</text>
+    </g>
+  </g>
+
+  <!-- ========== LAYER 3: TUNNEL TIER ========== -->
+  <g id="layer-tunnel">
+    <text x="40" y="338" font-size="13" font-weight="700" fill="#6d28d9" letter-spacing="1">③ 隧道聚合层 · TUNNEL TIER（可选 · 远程诊断）</text>
+    <g filter="url(#shadow)">
+      <rect x="40" y="348" width="1600" height="60" rx="12" fill="#f5f3ff" stroke="#8b5cf6" stroke-width="1.4" stroke-dasharray="6 4"/>
+      <rect x="40" y="348" width="6" height="60" rx="3" fill="url(#gTunnel)"/>
+      <text x="62" y="374" font-size="16" font-weight="700" fill="#4c1d95">tunnel-server</text>
+      <text x="62" y="394" font-size="11.5" fill="#5b21b6">WebSocket 聚合服务器 · 多 Agent 注册 · Web UI 托管 · 跨网络远程诊断</text>
+      <text x="1300" y="384" font-size="11" fill="#6d28d9" font-style="italic">基于 tunnel-common 协议</text>
+    </g>
+    <!-- arrow down -->
+    <line x1="840" y1="408" x2="840" y2="430" stroke="#7c3aed" stroke-width="1.6" marker-end="url(#arrPurple)"/>
+  </g>
+
+  <!-- ========== LAYER 4: TARGET JVM CONTAINER ========== -->
+  <g id="target-jvm">
+    <rect x="24" y="424" width="1632" height="760" rx="18" fill="#ffffff" fill-opacity="0.55" stroke="#94a3b8" stroke-width="1.6" stroke-dasharray="8 5"/>
+    <!-- Container label tab -->
+    <rect x="48" y="412" width="380" height="32" rx="6" fill="#475569"/>
+    <text x="62" y="434" font-size="14" font-weight="700" fill="#fff">Target JVM · HotSpot · 被诊断进程</text>
+    <text x="338" y="434" font-size="11" fill="#cbd5e1" text-anchor="end">Attach by PID</text>
+  </g>
+
+  <!-- ===== 4a: Bootstrap & Services ===== -->
+  <g id="layer-boot">
+    <text x="56" y="478" font-size="13" font-weight="700" fill="#1d4ed8" letter-spacing="1">④ 启动与服务层 · BOOTSTRAP &amp; SERVICES</text>
+    <g filter="url(#shadowSoft)">
+      <rect x="56" y="490" width="300" height="74" rx="9" fill="#dbeafe" stroke="#3b82f6" stroke-width="1.1"/>
+      <text x="70" y="513" font-size="14" font-weight="700" fill="#1e3a8a">ArthasBootstrap</text>
+      <text x="70" y="531" font-size="11" fill="#1e40af">核心启动器 · 调度 SHUTDOWN hook</text>
+      <text x="70" y="548" font-size="11" fill="#1e40af">启动 Netty Telnet/HTTP 服务</text>
+    </g>
+    <g filter="url(#shadowSoft)">
+      <rect x="376" y="490" width="270" height="74" rx="9" fill="#dbeafe" stroke="#3b82f6" stroke-width="1.1"/>
+      <text x="390" y="513" font-size="14" font-weight="700" fill="#1e3a8a">ShellServer / ShellImpl</text>
+      <text x="390" y="531" font-size="11" fill="#1e40af">交互式 Shell · 命令解析分发</text>
+      <text x="390" y="548" font-size="11" fill="#1e40af">Term · History · LineParser</text>
+    </g>
+    <g filter="url(#shadowSoft)">
+      <rect x="666" y="490" width="270" height="74" rx="9" fill="#dbeafe" stroke="#3b82f6" stroke-width="1.1"/>
+      <text x="680" y="513" font-size="14" font-weight="700" fill="#1e3a8a">SessionManagerImpl</text>
+      <text x="680" y="531" font-size="11" fill="#1e40af">会话管理 · 多会话隔离</text>
+      <text x="680" y="548" font-size="11" fill="#1e40af">SessionId · 上下文状态</text>
+    </g>
+    <g filter="url(#shadowSoft)">
+      <rect x="956" y="490" width="270" height="74" rx="9" fill="#dbeafe" stroke="#3b82f6" stroke-width="1.1"/>
+      <text x="970" y="513" font-size="14" font-weight="700" fill="#1e3a8a">JobControllerImpl</text>
+      <text x="970" y="531" font-size="11" fill="#1e40af">后台 Job · 异步任务调度</text>
+      <text x="970" y="548" font-size="11" fill="#1e40af">watch/trace/monitor 长运行</text>
+    </g>
+    <g filter="url(#shadowSoft)">
+      <rect x="1246" y="490" width="368" height="74" rx="9" fill="#dbeafe" stroke="#3b82f6" stroke-width="1.1"/>
+      <text x="1260" y="513" font-size="14" font-weight="700" fill="#1e3a8a">CommandProcess · HistoryManagerImpl</text>
+      <text x="1260" y="531" font-size="11" fill="#1e40af">命令执行上下文 · 输入输出流</text>
+      <text x="1260" y="548" font-size="11" fill="#1e40af">历史命令记录 · ANSI 渲染</text>
+    </g>
+  </g>
+
+  <!-- ===== 4b: Command System ===== -->
+  <g id="layer-cmd">
+    <text x="56" y="598" font-size="13" font-weight="700" fill="#0f766e" letter-spacing="1">⑤ 命令系统 · COMMAND SYSTEM</text>
+    <g filter="url(#shadowSoft)">
+      <rect x="56" y="610" width="260" height="110" rx="9" fill="#ccfbf1" stroke="#14b8a6" stroke-width="1.1"/>
+      <text x="70" y="633" font-size="14" font-weight="700" fill="#134e4a">命令基类体系</text>
+      <text x="70" y="654" font-size="11.5" fill="#115e59">AnnotatedCommand · Command</text>
+      <text x="70" y="673" font-size="11.5" fill="#115e59">@Name / @Description</text>
+      <text x="70" y="692" font-size="11.5" fill="#115e59">CommandProcess · Listener</text>
+      <text x="70" y="711" font-size="11.5" fill="#115e59">BuiltinCommandPack 注册</text>
+    </g>
+    <g filter="url(#shadowSoft)">
+      <rect x="336" y="610" width="1278" height="110" rx="9" fill="#ccfbf1" stroke="#14b8a6" stroke-width="1.1"/>
+      <text x="350" y="633" font-size="14" font-weight="700" fill="#134e4a">内置命令库 · BuiltinCommandPack</text>
+      <text x="350" y="660" font-size="11.5" fill="#115e59">watch · trace · stack · monitor · dashboard · thread · jad · mc · vmtool · profiler</text>
+      <text x="350" y="681" font-size="11.5" fill="#115e59">heapdump · dump · redefine · retransform · sc · sm · classloader · ognl · getstatic</text>
+      <text x="350" y="702" font-size="11.5" fill="#115e59">jad · mc · ognl · vmtool · logger · sysprop · sysenv · vmoption · mbean · vim · stop · session</text>
+      <text x="350" y="716" font-size="11" fill="#0f766e" font-style="italic">30+ 命令 · 通过 SPI / CommandResolver 动态发现</text>
+    </g>
+  </g>
+
+  <!-- ===== 4c: Bytecode Enhancement ===== -->
+  <g id="layer-enh">
+    <text x="56" y="752" font-size="13" font-weight="700" fill="#be123c" letter-spacing="1">⑥ 字节码增强层 · BYTECODE ENHANCEMENT</text>
+    <g filter="url(#shadowSoft)">
+      <rect x="56" y="764" width="380" height="86" rx="9" fill="#ffe4e6" stroke="#f43f5e" stroke-width="1.1"/>
+      <text x="70" y="788" font-size="14" font-weight="700" fill="#881337">Enhancer</text>
+      <text x="70" y="808" font-size="11.5" fill="#9f1239">ByteBuddy / ASM 字节码织入</text>
+      <text x="70" y="826" font-size="11.5" fill="#9f1239">按 ClassMatcher / MethodMatcher 定位</text>
+      <text x="70" y="843" font-size="11.5" fill="#9f1239">Inst.retransformClasses 触发重定义</text>
+    </g>
+    <g filter="url(#shadowSoft)">
+      <rect x="456" y="764" width="380" height="86" rx="9" fill="#ffe4e6" stroke="#f43f5e" stroke-width="1.1"/>
+      <text x="470" y="788" font-size="14" font-weight="700" fill="#881337">Advice Weaving</text>
+      <text x="470" y="808" font-size="11.5" fill="#9f1239">Around · Before · After · Throwing</text>
+      <text x="470" y="826" font-size="11.5" fill="#9f1239">@OnMethodEnter / @OnMethodExit</text>
+      <text x="470" y="843" font-size="11.5" fill="#9f1239">织入 SpyAPI 静态调用代码</text>
+    </g>
+    <g filter="url(#shadowSoft)">
+      <rect x="856" y="764" width="380" height="86" rx="9" fill="#ffe4e6" stroke="#f43f5e" stroke-width="1.1"/>
+      <text x="870" y="788" font-size="14" font-weight="700" fill="#881337">AdviceListenerManager</text>
+      <text x="870" y="808" font-size="11.5" fill="#9f1239">监听器注册与分发</text>
+      <text x="870" y="826" font-size="11.5" fill="#9f1239">watch / trace / monitor 回调实现</text>
+      <text x="870" y="843" font-size="11.5" fill="#9f1239">采集方法栈 · 耗时 · 返回值 · 异常</text>
+    </g>
+    <g filter="url(#shadowSoft)">
+      <rect x="1256" y="764" width="358" height="86" rx="9" fill="#ffe4e6" stroke="#f43f5e" stroke-width="1.1"/>
+      <text x="1270" y="788" font-size="14" font-weight="700" fill="#881337">SpyInterceptors</text>
+      <text x="1270" y="808" font-size="11.5" fill="#9f1239">注解驱动拦截器</text>
+      <text x="1270" y="826" font-size="11.5" fill="#9f1239">@AtInteraction · 交互式增强</text>
+      <text x="1270" y="843" font-size="11.5" fill="#9f1239">支持 lambda / 构造器 / 字段</text>
+    </g>
+  </g>
+
+  <!-- ===== 4d: Spy Bridge ===== -->
+  <g id="layer-spy">
+    <text x="56" y="884" font-size="13" font-weight="700" fill="#c2410c" letter-spacing="1">⑦ Spy 桥接层 · SPY BRIDGE（BootstrapClassLoader 静态门面）</text>
+    <g filter="url(#shadow)">
+      <rect x="56" y="896" width="720" height="76" rx="10" fill="#ffedd5" stroke="#f97316" stroke-width="1.3"/>
+      <rect x="56" y="896" width="6" height="76" rx="3" fill="url(#gSpy)"/>
+      <text x="78" y="920" font-size="15" font-weight="700" fill="#7c2d12">SpyAPI  ·  com.taobao.arthas.spy</text>
+      <text x="78" y="941" font-size="11.5" fill="#9a3412">注入到 BootstrapClassLoader · 被增强字节码直接静态调用</text>
+      <text x="78" y="959" font-size="11.5" fill="#9a3412">methodEnter / methodExit / methodThrowing / cloneInstance</text>
+    </g>
+    <!-- Spy link -->
+    <line x1="784" y1="934" x2="894" y2="934" stroke="#ea580c" stroke-width="2.2" marker-end="url(#arrOrange)"/>
+    <text x="839" y="924" text-anchor="middle" font-size="11" fill="#9a3412" font-style="italic">委托</text>
+    <g filter="url(#shadow)">
+      <rect x="900" y="896" width="714" height="76" rx="10" fill="#ffedd5" stroke="#f97316" stroke-width="1.3"/>
+      <rect x="900" y="896" width="6" height="76" rx="3" fill="url(#gSpy)"/>
+      <text x="922" y="920" font-size="15" font-weight="700" fill="#7c2d12">SpyImpl  →  AdviceListener</text>
+      <text x="922" y="941" font-size="11.5" fill="#9a3412">在 ArthasClassloader 内 · 把调用路由回 Arthas Core</text>
+      <text x="922" y="959" font-size="11.5" fill="#9a3412">跨类加载器桥接 · 解耦被增强类与诊断逻辑</text>
+    </g>
+  </g>
+
+  <!-- ===== 4e: ClassLoader Isolation + Application ===== -->
+  <g id="layer-app">
+    <text x="56" y="1014" font-size="13" font-weight="700" fill="#334155" letter-spacing="1">⑧ 类加载隔离 &amp; 目标应用 · CLASSLOADER &amp; APPLICATION</text>
+    <g filter="url(#shadowSoft)">
+      <rect x="56" y="1026" width="420" height="76" rx="9" fill="#e2e8f0" stroke="#64748b" stroke-width="1.1"/>
+      <text x="70" y="1050" font-size="14" font-weight="700" fill="#0f172a">ArthasClassloader</text>
+      <text x="70" y="1070" font-size="11.5" fill="#334155">独立类加载器 · 与目标应用隔离</text>
+      <text x="70" y="1088" font-size="11.5" fill="#334155">自包含 Netty / ByteBuddy 等依赖</text>
+    </g>
+    <g filter="url(#shadowSoft)">
+      <rect x="496" y="1026" width="420" height="76" rx="9" fill="#e2e8f0" stroke="#64748b" stroke-width="1.1"/>
+      <text x="510" y="1050" font-size="14" font-weight="700" fill="#0f172a">OGNL 表达式引擎</text>
+      <text x="510" y="1070" font-size="11.5" fill="#334155">ExpressFactory · 动态求值</text>
+      <text x="510" y="1088" font-size="11.5" fill="#334155">watch/trace 条件过滤 · 字段访问</text>
+    </g>
+    <g filter="url(#shadowSoft)">
+      <rect x="936" y="1026" width="420" height="76" rx="9" fill="#e2e8f0" stroke="#64748b" stroke-width="1.1"/>
+      <text x="950" y="1050" font-size="14" font-weight="700" fill="#0f172a">用户应用类</text>
+      <text x="950" y="1070" font-size="11.5" fill="#334155">已被 Enhancer 织入增强字节码</text>
+      <text x="950" y="1088" font-size="11.5" fill="#334155">业务方法调用 → 触发 SpyAPI</text>
+    </g>
+    <g filter="url(#shadowSoft)">
+      <rect x="1376" y="1026" width="238" height="76" rx="9" fill="#e2e8f0" stroke="#64748b" stroke-width="1.1"/>
+      <text x="1390" y="1050" font-size="14" font-weight="700" fill="#0f172a">tunnel-client</text>
+      <text x="1390" y="1070" font-size="11.5" fill="#334155">Agent 端 WS 客户端</text>
+      <text x="1390" y="1088" font-size="11.5" fill="#334155">主动连出至 tunnel-server</text>
+    </g>
+  </g>
+
+  <!-- ========== KEY DATA FLOWS ========== -->
+  <!-- Flow A: command invocation (rose, vertical main) -->
+  <g id="flow-command">
+    <path d="M840,230 C840,250 840,265 840,272" fill="none" stroke="#e11d48" stroke-width="0" opacity="0"/>
+    <!-- Telnet → Bootstrap -->
+    <path d="M630,308 C630,360 630,420 630,470" fill="none" stroke="#e11d48" stroke-width="2.2" stroke-dasharray="2 5" opacity="0.65"/>
+    <!-- Web UI → Bootstrap -->
+    <path d="M920,308 C920,360 920,420 920,470" fill="none" stroke="#e11d48" stroke-width="2.2" stroke-dasharray="2 5" opacity="0.65"/>
+    <!-- MCP → Bootstrap (curved) -->
+    <path d="M1220,308 C1220,360 1220,420 1220,470" fill="none" stroke="#e11d48" stroke-width="2.2" stroke-dasharray="2 5" opacity="0.65"/>
+    <!-- CLI → Attach → Bootstrap (via Attach API) -->
+    <path d="M140,308 C140,360 140,420 200,470" fill="none" stroke="#e11d48" stroke-width="2.2" stroke-dasharray="2 5" opacity="0.65"/>
+  </g>
+
+  <!-- Internal arrows between sub-layers -->
+  <g id="internal-flows" stroke="#475569" stroke-width="1.4" fill="none">
+    <!-- Bootstrap → Command -->
+    <line x1="840" y1="566" x2="840" y2="606" marker-end="url(#arr)"/>
+    <!-- Command → Enhancer -->
+    <line x1="840" y1="722" x2="840" y2="760" marker-end="url(#arr)"/>
+    <!-- Enhancer → SpyAPI -->
+    <line x1="416" y1="852" x2="416" y2="892" marker-end="url(#arr)"/>
+    <!-- SpyAPI → Application (织入后触发) -->
+    <path d="M840,974 C840,990 840,1000 840,1024" marker-end="url(#arr)"/>
+  </g>
+
+  <!-- Side notes: feedback loop Spy→AdviceListener -->
+  <g id="feedback-loop">
+    <path d="M1500,934 C1560,934 1580,820 1500,820" fill="none" stroke="#ea580c" stroke-width="1.8" stroke-dasharray="5 4" opacity="0.85" marker-end="url(#arrOrange)"/>
+    <text x="1565" y="880" font-size="10.5" fill="#9a3412" font-style="italic" text-anchor="end">运行时回调</text>
+    <text x="1565" y="895" font-size="10.5" fill="#9a3412" font-style="italic" text-anchor="end">AdviceListener</text>
+  </g>
+
+  <!-- ========== LAYER 5: SUPPORT MODULES ========== -->
+  <g id="layer-support">
+    <text x="40" y="1210" font-size="13" font-weight="700" fill="#475569" letter-spacing="1">⑨ 支撑模块 · SUPPORT MODULES</text>
+
+    <g filter="url(#shadowSoft)">
+      <rect x="40" y="1222" width="252" height="78" rx="9" fill="#f1f5f9" stroke="#94a3b8" stroke-width="1.1"/>
+      <text x="54" y="1246" font-size="13.5" font-weight="700" fill="#0f172a">memorycompiler</text>
+      <text x="54" y="1266" font-size="11" fill="#475569">内存编译 · javax.tools</text>
+      <text x="54" y="1284" font-size="11" fill="#475569">mc / redefine 热更新</text>
+    </g>
+    <g filter="url(#shadowSoft)">
+      <rect x="312" y="1222" width="252" height="78" rx="9" fill="#f1f5f9" stroke="#94a3b8" stroke-width="1.1"/>
+      <text x="326" y="1246" font-size="13.5" font-weight="700" fill="#0f172a">arthas-vmtool</text>
+      <text x="326" y="1266" font-size="11" fill="#475569">JNI 原生库</text>
+      <text x="326" y="1284" font-size="11" fill="#475569">getInstances / 强制 GC</text>
+    </g>
+    <g filter="url(#shadowSoft)">
+      <rect x="584" y="1222" width="252" height="78" rx="9" fill="#f1f5f9" stroke="#94a3b8" stroke-width="1.1"/>
+      <text x="598" y="1246" font-size="13.5" font-weight="700" fill="#0f172a">arthas-mcp-server</text>
+      <text x="598" y="1266" font-size="11" fill="#475569">MCP 协议适配</text>
+      <text x="598" y="1284" font-size="11" fill="#475569">命令暴露为 AI 工具</text>
+    </g>
+    <g filter="url(#shadowSoft)">
+      <rect x="856" y="1222" width="252" height="78" rx="9" fill="#f1f5f9" stroke="#94a3b8" stroke-width="1.1"/>
+      <text x="870" y="1246" font-size="13.5" font-weight="700" fill="#0f172a">arthas-agent-attach</text>
+      <text x="870" y="1266" font-size="11" fill="#475569">进程内 Attach</text>
+      <text x="870" y="1284" font-size="11" fill="#475569">ByteBuddy 注入</text>
+    </g>
+    <g filter="url(#shadowSoft)">
+      <rect x="1128" y="1222" width="252" height="78" rx="9" fill="#f1f5f9" stroke="#94a3b8" stroke-width="1.1"/>
+      <text x="1142" y="1246" font-size="13.5" font-weight="700" fill="#0f172a">spring-boot-starter</text>
+      <text x="1142" y="1266" font-size="11" fill="#475569">Spring Boot 自动装配</text>
+      <text x="1142" y="1284" font-size="11" fill="#475569">嵌入式启动 Arthas</text>
+    </g>
+    <g filter="url(#shadowSoft)">
+      <rect x="1400" y="1222" width="240" height="78" rx="9" fill="#f1f5f9" stroke="#94a3b8" stroke-width="1.1"/>
+      <text x="1414" y="1246" font-size="13.5" font-weight="700" fill="#0f172a">common / model / spy</text>
+      <text x="1414" y="1266" font-size="11" fill="#475569">公共工具 · 数据模型</text>
+      <text x="1414" y="1284" font-size="11" fill="#475569">Spy 注入桩</text>
+    </g>
+  </g>
+
+  <!-- ========== LEGEND ========== -->
+  <g id="legend">
+    <rect x="40" y="1320" width="1600" height="78" rx="10" fill="#ffffff" fill-opacity="0.7" stroke="#cbd5e1" stroke-width="1"/>
+    <text x="56" y="1346" font-size="12.5" font-weight="700" fill="#0f172a">图例 · LEGEND</text>
+
+    <!-- Arrow types -->
+    <line x1="160" y1="1362" x2="220" y2="1362" stroke="#475569" stroke-width="1.4" marker-end="url(#arr)"/>
+    <text x="228" y="1366" font-size="11" fill="#334155">内部调用 / 流转</text>
+
+    <line x1="370" y1="1362" x2="430" y2="1362" stroke="#e11d48" stroke-width="2.2" stroke-dasharray="2 5" opacity="0.85"/>
+    <text x="438" y="1366" font-size="11" fill="#334155">命令触发数据流</text>
+
+    <line x1="600" y1="1362" x2="660" y2="1362" stroke="#ea580c" stroke-width="1.8" stroke-dasharray="5 4" marker-end="url(#arrOrange)"/>
+    <text x="668" y="1366" font-size="11" fill="#334155">运行时回调</text>
+
+    <line x1="820" y1="1362" x2="880" y2="1362" stroke="#7c3aed" stroke-width="1.8" marker-end="url(#arrPurple)"/>
+    <text x="888" y="1366" font-size="11" fill="#334155">WebSocket 隧道</text>
+
+    <!-- Color legend -->
+    <g transform="translate(160, 1383)">
+      <rect width="14" height="10" rx="2" fill="#6366f1"/><text x="20" y="9" font-size="10.5" fill="#334155">用户接入</text>
+      <rect x="100" width="14" height="10" rx="2" fill="#f59e0b"/><text x="120" y="9" font-size="10.5" fill="#334155">通信协议</text>
+      <rect x="200" width="14" height="10" rx="2" fill="#8b5cf6"/><text x="220" y="9" font-size="10.5" fill="#334155">隧道聚合</text>
+      <rect x="300" width="14" height="10" rx="2" fill="#3b82f6"/><text x="320" y="9" font-size="10.5" fill="#334155">启动服务</text>
+      <rect x="400" width="14" height="10" rx="2" fill="#14b8a6"/><text x="420" y="9" font-size="10.5" fill="#334155">命令系统</text>
+      <rect x="500" width="14" height="10" rx="2" fill="#f43f5e"/><text x="520" y="9" font-size="10.5" fill="#334155">字节码增强</text>
+      <rect x="610" width="14" height="10" rx="2" fill="#f97316"/><text x="630" y="9" font-size="10.5" fill="#334155">Spy 桥接</text>
+      <rect x="700" width="14" height="10" rx="2" fill="#64748b"/><text x="720" y="9" font-size="10.5" fill="#334155">目标应用 / 支撑</text>
+    </g>
+
+    <text x="1610" y="1346" text-anchor="end" font-size="10.5" fill="#94a3b8" font-style="italic">Generated from Arthas 4.3.2 source</text>
+  </g>
+</svg>
