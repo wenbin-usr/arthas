@@ -1,7 +1,5 @@
 # getstatic
 
-[`getstatic`在线教程](https://arthas.aliyun.com/doc/arthas-tutorials.html?language=cn&id=command-getstatic)
-
 ### 使用参考
 
 - 推荐直接使用[ognl](ognl.md)命令，更加灵活。
@@ -50,8 +48,7 @@ $ getstatic -c 3d4eac69 demo.MathGame random
 
 如果该静态属性是一个复杂对象，还可以支持在该属性上通过 ognl 表示进行遍历，过滤，访问对象的内部属性等操作。
 
-- OGNL 特殊用法请参考：[https://github.com/alibaba/arthas/issues/71](https://github.com/alibaba/arthas/issues/71)
-- OGNL 表达式官方指南：[https://commons.apache.org/dormant/commons-ognl/language-guide.html](https://commons.apache.org/dormant/commons-ognl/language-guide.html)
+- [OGNL 复杂表达式使用技巧](ognl-express.md)
 
 例如，假设 n 是一个 Map，Map 的 Key 是一个 Enum，我们想过滤出 Map 中 Key 为某个 Enum 的值，可以写如下命令
 

@@ -1,7 +1,5 @@
 # Http API
 
-[`Http API`在线教程](https://arthas.aliyun.com/doc/arthas-tutorials.html?language=cn&id=case-http-api)
-
 ## 概览
 
 Http API
@@ -253,7 +251,6 @@ while true; do curl -Ss -XPOST http://localhost:8563/api -d '
         "message": "Welcome to arthas!"
       },
       {
-        "tutorials": "https://arthas.aliyun.com/doc/arthas-tutorials.html",
         "time": "2020-08-06 15:56:43",
         "type": "welcome",
         "jobId": 0,
@@ -592,7 +589,7 @@ classpath: demo-arthas-spring-boot.jar
 
 ### watch 命令输出 map 对象
 
-watch 的结果值由计算`watch-express` ognl 表达式产生，可以通过改变 ognl 表达式来生成想要的值，请参考[OGNL 文档](https://commons.apache.org/dormant/commons-ognl/language-guide.html)。
+watch 的结果值由计算`watch-express` ognl 表达式产生，可以通过改变 ognl 表达式来生成想要的值，请参考 [OGNL 复杂表达式使用技巧](ognl-express.md)。
 
 ::: tip
 Maps can also be created using a special syntax.

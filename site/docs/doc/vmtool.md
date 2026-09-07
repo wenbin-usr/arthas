@@ -4,8 +4,6 @@
 @since 3.5.1
 :::
 
-[`vmtool`在线教程](https://arthas.aliyun.com/doc/arthas-tutorials.html?language=cn&id=command-vmtool)
-
 `vmtool` 利用`JVMTI`接口，实现查询内存对象，强制 GC 等功能。
 
 - [JVM Tool Interface](https://docs.oracle.com/javase/8/docs/platform/jvmti/jvmti.html)
@@ -81,6 +79,8 @@ vmtool --action getInstances -c 19469ea2 --className org.springframework.context
 ```bash
 vmtool --action getInstances --classLoaderClass org.springframework.boot.loader.LaunchedURLClassLoader --className org.springframework.context.ApplicationContext --express 'instances[0].getBeanDefinitionNames()'
 ```
+
+在 `instances` 上编写复杂筛选、投影或空值分支时，请参考 [OGNL 复杂表达式使用技巧](ognl-express.md)。
 
 ### 过滤对象
 

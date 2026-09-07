@@ -1,7 +1,5 @@
 # tt
 
-[`tt`在线教程](https://arthas.aliyun.com/doc/arthas-tutorials.html?language=cn&id=command-tt)
-
 ::: tip
 方法执行数据的时空隧道，记录下指定方法每次调用的入参和返回信息，并能对这些不同的时间下调用进行观测
 :::
@@ -107,6 +105,8 @@ Affect(class count:1 , method count:1) cost in 130 ms, listenerId: 1.
 - 构成条件表达式的 `Advice` 对象
 
   前边看到了很多条件表达式中，都使用了 `params[0]`，有关这个变量的介绍，请参考[表达式核心变量](advice-class.md)
+
+  复杂的筛选、投影、空值处理及 AI Agent 生成建议参见 [OGNL 复杂表达式使用技巧](ognl-express.md)。
 
 ### 检索调用记录
 

@@ -1,7 +1,5 @@
 # stack
 
-[`stack` online tutorial](https://arthas.aliyun.com/doc/arthas-tutorials.html?language=en&id=command-stack)
-
 ::: tip
 Print out the full call stack of the current method.
 :::
@@ -26,8 +24,7 @@ Thanks for `advice`'s data structure, it is possible to observe from varieties o
 
 Pls. refer to [core parameters in expression](advice-class.md) for more details.
 
-- Pls. also refer to [https://github.com/alibaba/arthas/issues/71](https://github.com/alibaba/arthas/issues/71) for more advanced usage
-- OGNL official site: [https://commons.apache.org/dormant/commons-ognl/language-guide.html](https://commons.apache.org/dormant/commons-ognl/language-guide.html)
+- [Tips for complex OGNL expressions](ognl-express.md)
 
 ## Usage
 

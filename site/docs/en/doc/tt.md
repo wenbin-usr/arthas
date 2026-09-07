@@ -1,7 +1,5 @@
 # tt
 
-[`tt` online tutorial](https://arthas.aliyun.com/doc/arthas-tutorials.html?language=en&id=command-tt)
-
 Check the `parameters`, `return values` and `exceptions` of the methods at different times.
 
 `watch` is a powerful command but due to its feasibility and complexity, it's quite hard to locate the issue effectively.
@@ -88,8 +86,7 @@ Tips:
 Advanced:
 
 - [Critical fields in expression](advice-class.md)
-- [Special usage](https://github.com/alibaba/arthas/issues/71)
-- [OGNL official guide](https://commons.apache.org/dormant/commons-ognl/language-guide.html)
+- [Tips for complex OGNL expressions](ognl-express.md)
 
 ### List all records
 

@@ -1,7 +1,5 @@
 # options
 
-[`options` online tutorial](https://arthas.aliyun.com/doc/arthas-tutorials.html?language=en&id=command-options)
-
 ::: tip
 Global options
 :::
@@ -118,6 +116,8 @@ since 3.6.0
 :::
 
 For new users, there may be misuses when writing ognl expressions.
+
+See [Tips for complex OGNL expressions](ognl-express.md) for read-only constraints, a generation checklist, and error classification.
 
 For example, for `Student`, when judging the age is equal to 18, the conditional expression may be mistakenly written as `target.age=18`, which actually sets the `age` of the current object to 18. The correct spelling is `target.age==18`.
 

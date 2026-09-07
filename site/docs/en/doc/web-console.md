@@ -1,7 +1,5 @@
 # Web Console
 
-[`Web Console` online tutorial](https://arthas.aliyun.com/doc/arthas-tutorials.html?language=en&id=case-web-console)
-
 ## Connect arthas through the browser
 
 Arthas supports the Web Console. After attach success, the user can access: [http://127.0.0.1:8563/](http://127.0.0.1:8563/).

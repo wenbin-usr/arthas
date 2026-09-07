@@ -32,8 +32,8 @@ Arthas Tunnel Server/Client enables remote management/connection to Java service
 
 ## How to use ognl
 
+- [Tips for complex OGNL expressions](ognl-express.md)
 - [Basic ognl example](https://github.com/alibaba/arthas/issues/11)
-- [Ognl special uses](https://github.com/alibaba/arthas/issues/71)
 
 ## IDEA Plugin
 
@@ -115,7 +115,6 @@ Escape character is '^]'.
 
 
 wiki      https://arthas.aliyun.com/doc
-tutorials https://arthas.aliyun.com/doc/arthas-tutorials.html
 version   3.3.6
 pid       58883
 ```

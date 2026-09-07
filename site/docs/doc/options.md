@@ -1,7 +1,5 @@
 # options
 
-[`options`在线教程](https://arthas.aliyun.com/doc/arthas-tutorials.html?language=cn&id=command-options)
-
 ::: tip
 全局开关
 :::
@@ -118,6 +116,8 @@ since 3.6.0
 :::
 
 对于新用户，在编写 ognl 表达式时，可能会出现误用。
+
+复杂表达式的只读约束、生成检查清单和错误分类参见 [OGNL 复杂表达式使用技巧](ognl-express.md)。
 
 比如对于`Student`，判断年龄等于 18 时，可能条件表达式会误写为`target.age=18`，这个表达式实际上是把当前对象的`age`设置为 18 了。正确的写法是`target.age==18`。
 

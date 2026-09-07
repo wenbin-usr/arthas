@@ -4,8 +4,6 @@
 @since 3.5.1
 :::
 
-[`vmtool` online tutorial](https://arthas.aliyun.com/doc/arthas-tutorials.html?language=en&id=command-vmtool)
-
 `vmtool` uses the `JVMTI` to support `getInstances` in jvm and `forceGc`.
 
 - [JVM Tool Interface](https://docs.oracle.com/javase/8/docs/platform/jvmti/jvmti.html)
@@ -81,6 +79,8 @@ The return result of the `getInstances` action is bound to the `instances` varia
 ```bash
 vmtool --action getInstances --classLoaderClass org.springframework.boot.loader.LaunchedURLClassLoader --className org.springframework.context.ApplicationContext --express 'instances[0].getBeanDefinitionNames()'
 ```
+
+See [Tips for complex OGNL expressions](ognl-express.md) when writing complex selections, projections, or null branches over `instances`.
 
 ### Filter objects
 

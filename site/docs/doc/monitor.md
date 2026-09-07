@@ -1,7 +1,5 @@
 # monitor
 
-[`monitor`在线教程](https://arthas.aliyun.com/doc/arthas-tutorials.html?language=cn&id=command-monitor)
-
 ::: tip
 方法执行监控
 :::
@@ -41,6 +39,8 @@
 |     `--classloader` | 指定 classloader hash，只增强该 classloader 加载的类               |
 |                 [b] | 在**方法调用之前**计算 condition-express                           |
 |         `[m <arg>]` | 指定 Class 最大匹配数量，默认值为 50。长格式为`[maxMatch <arg>]`。 |
+
+`condition-express` 使用 OGNL 语法。可用变量参见[表达式核心变量](advice-class.md)，复杂条件的写法与排错方法参见 [OGNL 复杂表达式使用技巧](ognl-express.md)。
 
 ## 使用参考
 
