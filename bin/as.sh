@@ -162,14 +162,13 @@ COMMAND_LOCATIONS=
 # if arguments contains -c/--command or -f/--batch-file,  BATCH_MODE will be true
 BATCH_MODE=false
 
-# define arthas's temp dir
-TMP_DIR=/tmp
-
 # arthas remote url
 # https://arthas.aliyun.com/download/3.1.7?mirror=aliyun
 REMOTE_DOWNLOAD_URL="https://arthas.aliyun.com/download/PLACEHOLDER_VERSION?mirror=PLACEHOLDER_REPO"
 # update timeout(sec)
 SO_TIMEOUT=5
+# 下载完整包时允许更长的传输时间，但不能无限等待。
+DOWNLOAD_TIMEOUT=120
 
 # define JVM's OPS
 JVM_OPTS=""
@@ -185,7 +184,7 @@ case "$(uname -s)" in
     *)          OS_TYPE="UNKNOWN"
 esac
 
-# check curl/grep/awk/telnet/unzip command
+# 检查公共依赖，telnet 仅在交互模式下需要。
 if ! [ -x "$(command -v curl)" ]; then
   echo 'Error: curl is not installed. Try to use java -jar arthas-boot.jar' >&2
   exit 1
@@ -196,10 +195,6 @@ if ! [ -x "$(command -v grep)" ]; then
 fi
 if ! [ -x "$(command -v awk)" ]; then
   echo 'Error: awk is not installed. Try to use java -jar arthas-boot.jar' >&2
-  exit 1
-fi
-if ! [ -x "$(command -v telnet)" ]; then
-  echo 'Error: telnet is not installed. Try to use java -jar arthas-boot.jar' >&2
   exit 1
 fi
 if ! [ -x "$(command -v unzip)" ]; then
@@ -234,6 +229,64 @@ check_permission()
 }
 
 
+# 验证候选 Java，成功后才更新 JAVA_HOME 和对应的启动参数。
+try_java_home()
+{
+    local java_home="$1"
+    [ -n "$java_home" ] || return 1
+    if [ ! -x "$java_home/bin/java" ]; then
+        echo "[WARN] Skip JAVA_HOME '$java_home': bin/java is missing or not executable." >&2
+        return 1
+    fi
+
+    local version_output
+    if ! version_output=$("$java_home/bin/java" -version 2>&1); then
+        echo "[WARN] Skip JAVA_HOME '$java_home': java -version failed." >&2
+        return 1
+    fi
+
+    local java_version= line version
+    local version_pattern='version[[:space:]]+"([^"]+)"'
+    while IFS= read -r line; do
+        if [[ "$line" =~ $version_pattern ]]; then
+            version=${BASH_REMATCH[1]}
+            [[ "$version" == 1.* ]] && version=${version#1.}
+            if [[ "$version" =~ ^([0-9]+)($|[-._+]) ]]; then
+                java_version=$((10#${BASH_REMATCH[1]}))
+                break
+            fi
+        fi
+    done <<< "$version_output"
+
+    if [ -z "$java_version" ] || [ "$java_version" -lt 1 ]; then
+        echo "[WARN] Skip JAVA_HOME '$java_home': unrecognized Java version." >&2
+        return 1
+    fi
+
+    java_home=$(rreadlink "$java_home") || return 1
+    local boot_classpath= candidate
+    # 仅 Java 8 及以下需要 tools.jar；保留从 JRE 子目录向父 JDK 查找的行为。
+    if [ "$java_version" -lt 9 ]; then
+        local java_homes=("$java_home" "$java_home/.." "$java_home/../..")
+        for candidate in "${java_homes[@]}"; do
+            if [ -x "$candidate/bin/java" ] && [ -f "$candidate/lib/tools.jar" ]; then
+                java_home=$(rreadlink "$candidate") || return 1
+                boot_classpath="-Xbootclasspath/a:$java_home/lib/tools.jar"
+                break
+            fi
+        done
+        if [ -z "$boot_classpath" ]; then
+            echo "[WARN] Skip JAVA_HOME '$java_home': Java $java_version requires a JDK with lib/tools.jar." >&2
+            return 1
+        fi
+    fi
+
+    JAVA_HOME=$java_home
+    BOOT_CLASSPATH=$boot_classpath
+    return 0
+}
+
+
 # reset arthas work environment
 # reset some options for env
 reset_for_env()
@@ -244,73 +297,38 @@ reset_for_env()
     mkdir -p "${ARTHAS_LIB_DIR}" \
         || exit_on_err 1 "create ${ARTHAS_LIB_DIR} fail."
 
-    # if env define the JAVA_HOME, use it first
-    # if is alibaba opts, use alibaba ops's default JAVA_HOME
-    [ -z "${JAVA_HOME}" ] && [ -d /opt/taobao/java ] && JAVA_HOME=/opt/taobao/java
+    local configured_java_home="${JAVA_HOME}"
+    JAVA_HOME=
+    BOOT_CLASSPATH=
 
-    if [[ (-z "${JAVA_HOME}") && ( -e "/usr/libexec/java_home") ]]; then
-        # for mac
-        JAVA_HOME=`/usr/libexec/java_home`
+    # 有效的显式配置优先；只有当前来源不可用时才查找下一个来源。
+    if ! try_java_home "$configured_java_home" && [ -d /opt/taobao/java ]; then
+        try_java_home /opt/taobao/java
+    fi
+
+    if [ -z "${JAVA_HOME}" ] && [ -x /usr/libexec/java_home ]; then
+        local mac_java_home
+        mac_java_home=$(/usr/libexec/java_home 2>/dev/null) && try_java_home "$mac_java_home"
     fi
 
     if [ -z "${JAVA_HOME}" ]; then
-        # try to find JAVA_HOME from java command
-        local JAVA_COMMAND_PATH=$( rreadlink $(type -p java) )
-        JAVA_HOME=$(echo "$JAVA_COMMAND_PATH" | sed -n 's/\/bin\/java$//p')
-    fi
-
-    # iterater through candidates to find a proper JAVA_HOME at least contains tools.jar which is required by arthas.
-    if [ ! -d "${JAVA_HOME}" ]; then
-        JAVA_HOME_CANDIDATES=($(ps aux | grep java | grep -v 'grep java' | awk '{print $11}' | sed -n 's/\/bin\/java$//p'))
-        for JAVA_HOME_TEMP in ${JAVA_HOME_CANDIDATES[@]}; do
-            if [ -f "${JAVA_HOME_TEMP}/lib/tools.jar" ]; then
-                JAVA_HOME=`rreadlink "${JAVA_HOME_TEMP}"`
-                break
-            fi
-        done
-    fi
-
-    if [ -z "${JAVA_HOME}" ]; then
-        exit_on_err 1 "Can not find JAVA_HOME, please set \$JAVA_HOME bash env first."
-    fi
-
-    # maybe 1.8.0_162 , 11-ea
-    local JAVA_VERSION
-
-    local IFS=$'\n'
-    # remove \r for Cygwin
-    local lines=$("${JAVA_HOME}"/bin/java -version 2>&1 | tr '\r' '\n')
-    for line in $lines; do
-      if [[ (-z $JAVA_VERSION) && ($line = *"version \""*) ]]
-      then
-        local ver=$(echo $line | sed -e 's/.*version "\(.*\)"\(.*\)/\1/; 1q')
-        # on macOS, sed doesn't support '?'
-        if [[ $ver = "1."* ]]
-        then
-          JAVA_VERSION=$(echo $ver | sed -e 's/1\.\([0-9]*\)\(.*\)/\1/; 1q')
-        else
-          JAVA_VERSION=$(echo $ver | sed -e 's/\([0-9]*\)\(.*\)/\1/; 1q')
+        local java_command_path
+        java_command_path=$(type -p java)
+        if [ -n "$java_command_path" ] && java_command_path=$(rreadlink "$java_command_path"); then
+            case "$java_command_path" in
+                */bin/java) try_java_home "${java_command_path%/bin/java}" ;;
+            esac
         fi
-      fi
-    done
-
-    # when java version less than 9, we can use tools.jar to confirm java home.
-    # when java version greater than 9, there is no tools.jar.
-    if [[ "$JAVA_VERSION" -lt 9 ]];then
-      # possible java homes
-      javaHomes=("${JAVA_HOME%%/}" "${JAVA_HOME%%/}/.." "${JAVA_HOME%%/}/../..")
-      for javaHome in ${javaHomes[@]}
-      do
-          toolsJar="$javaHome/lib/tools.jar"
-          if [ -f $toolsJar ]; then
-              JAVA_HOME=$( rreadlink $javaHome )
-              BOOT_CLASSPATH=-Xbootclasspath/a:$( rreadlink $toolsJar )
-              break
-          fi
-      done
-      [ -z "${BOOT_CLASSPATH}" ] && exit_on_err 1 "tools.jar was not found, so arthas could not be launched!"
     fi
 
+    if [ -z "${JAVA_HOME}" ]; then
+        local candidate
+        while IFS= read -r candidate; do
+            try_java_home "$candidate" && break
+        done < <(ps aux | awk '$11 ~ /\/bin\/java$/ { sub(/\/bin\/java$/, "", $11); print $11 }')
+    fi
+
+    [ -n "${JAVA_HOME}" ] || exit_on_err 1 "Can not find a usable JAVA_HOME; see the candidate errors above."
     echo "[INFO] JAVA_HOME: ${JAVA_HOME}"
 
     # reset CHARSET for alibaba opts, we use GBK
@@ -321,13 +339,39 @@ reset_for_env()
 # get latest version from local
 get_local_version()
 {
-    ls "${ARTHAS_LIB_DIR}" | sort | tail -1
+    local arthas_home
+    local version_dir
+    for arthas_home in "${ARTHAS_LIB_DIR}"/*/arthas; do
+        if is_arthas_home "${arthas_home}"; then
+            version_dir=${arthas_home%/arthas}
+            printf '%s\n' "${version_dir##*/}"
+        fi
+    done | LC_ALL=C sort -t. -k1,1n -k2,2n -k3,3n | tail -1
+}
+
+# 只选择包含启动器所需 JAR 的安装目录，忽略中断下载留下的残缺缓存。
+is_arthas_home()
+{
+    local jar
+    for jar in arthas-core.jar arthas-agent.jar arthas-spy.jar arthas-client.jar; do
+        [[ -f "${1}/${jar}" && -s "${1}/${jar}" ]] || return 1
+    done
 }
 
 # get latest version from remote
 get_remote_version()
 {
-    curl -sLk "https://arthas.aliyun.com/api/latest_version"
+    local remote_version
+    remote_version=$(curl -sSLk --fail \
+        --connect-timeout "${SO_TIMEOUT}" --max-time "${SO_TIMEOUT}" \
+        "https://arthas.aliyun.com/api/latest_version") || return 1
+
+    # 接口应返回版本号，不能把错误页面当成版本参与缓存选择。
+    if [[ ! "${remote_version}" =~ ^[0-9]+\.[0-9]+\.[0-9]+([.-][[:alnum:]]+)*$ ]]; then
+        echo "Invalid Arthas version response: ${remote_version}" >&2
+        return 1
+    fi
+    printf '%s\n' "${remote_version}"
 }
 
 # check version greater
@@ -335,53 +379,56 @@ version_gt()
 {
     local remote_version=$1
     local arthas_local_version=$2
-    [[ "$remote_version" > "$arthas_local_version" ]] && return 0 || return 1
+    [[ -n "${remote_version}" && "${remote_version}" != "${arthas_local_version}" ]] || return 1
+    # 使用各数字字段排序，兼容没有 sort -V 的 macOS。
+    [[ "$(printf '%s\n' "${remote_version}" "${arthas_local_version}" \
+        | LC_ALL=C sort -t. -k1,1n -k2,2n -k3,3n | tail -1)" == "${remote_version}" ]]
 }
 
 # update arthas if necessary
 update_if_necessary()
-{
+(
     local update_version=$1
+    local target_lib_dir="${ARTHAS_LIB_DIR}/${update_version}/arthas"
 
-    if [ ! -d "${ARTHAS_LIB_DIR}/${update_version}" ]; then
-        echo "updating version ${update_version} ..."
-
-        local temp_target_lib_dir="$TMP_DIR/temp_${update_version}_$$"
-        local temp_target_lib_zip="${temp_target_lib_dir}/arthas-${update_version}-bin.zip"
-        local target_lib_dir="${ARTHAS_LIB_DIR}/${update_version}/arthas"
-
-        # clean
-        rm -rf "${temp_target_lib_dir}"
-        rm -rf "${target_lib_dir}"
-
-        mkdir -p "${temp_target_lib_dir}" \
-            || exit_on_err 1 "create ${temp_target_lib_dir} fail."
-
-        # download current arthas version
-        local downloadUrl="${REMOTE_DOWNLOAD_URL//PLACEHOLDER_REPO/${REPO_MIRROR}}"
-        downloadUrl="${downloadUrl//PLACEHOLDER_VERSION/${update_version}}"
-        echo "Download arthas from: ${downloadUrl}"
-        curl \
-            -#Lk \
-            --connect-timeout ${SO_TIMEOUT} \
-            -o "${temp_target_lib_zip}" \
-            "${downloadUrl}" \
-        || return 1
-
-        # unzip arthas lib
-        if ! (unzip "${temp_target_lib_zip}" -d "${temp_target_lib_dir}") ; then
-            rm -rf "${temp_target_lib_dir}" "${ARTHAS_LIB_DIR}/${update_version}"
-            return 1
-        fi
-
-        mkdir -p "${ARTHAS_LIB_DIR}/${update_version}"
-        # rename
-        mv "${temp_target_lib_dir}" "${target_lib_dir}" || return 1
-
-        # print success
-        echo "update completed."
+    if is_arthas_home "${target_lib_dir}"; then
+        return 0
     fi
-}
+    echo "updating version ${update_version} ..."
+
+    # 暂存目录保持隐藏，下载失败时不会留下被 Java 启动器误选的空版本目录。
+    mkdir -p "${ARTHAS_LIB_DIR}" || return 1
+    local temp_dir
+    temp_dir=$(mktemp -d "${ARTHAS_LIB_DIR}/.arthas.XXXXXX") || return 1
+    trap 'rm -rf "${temp_dir}"' EXIT
+    local temp_target_lib_dir="${temp_dir}/arthas"
+    local temp_target_lib_zip="${temp_dir}/arthas-${update_version}-bin.zip"
+    # 正式安装使用 mkdir 按 umask 创建的目录，避免继承 mktemp 的 0700 权限。
+    mkdir "${temp_target_lib_dir}" || return 1
+
+    local downloadUrl="${REMOTE_DOWNLOAD_URL//PLACEHOLDER_REPO/${REPO_MIRROR}}"
+    downloadUrl="${downloadUrl//PLACEHOLDER_VERSION/${update_version}}"
+    echo "Download arthas from: ${downloadUrl}"
+    curl -#Lk --fail \
+        --connect-timeout "${SO_TIMEOUT}" --max-time "${DOWNLOAD_TIMEOUT}" \
+        -o "${temp_target_lib_zip}" "${downloadUrl}" || return 1
+
+    unzip "${temp_target_lib_zip}" -d "${temp_target_lib_dir}" || return 1
+    if ! is_arthas_home "${temp_target_lib_dir}"; then
+        echo "Downloaded Arthas ${update_version} is missing required JAR files." >&2
+        return 1
+    fi
+    rm -f "${temp_target_lib_zip}" || return 1
+
+    # 另一启动进程可能已完成相同版本的安装。
+    if is_arthas_home "${target_lib_dir}"; then
+        return 0
+    fi
+    mkdir -p "${ARTHAS_LIB_DIR}/${update_version}" || return 1
+    rm -rf "${target_lib_dir}" || return 1
+    mv "${temp_target_lib_dir}" "${target_lib_dir}" || return 1
+    echo "update completed."
+)
 
 # jps command may crash, so need to check it
 check_jps() {
@@ -1052,37 +1099,42 @@ main()
     parse_arguments "${@}" \
         || exit_on_err 1 "$(usage)"
 
+    if [[ "${ATTACH_ONLY}" = false && "${BATCH_MODE}" = false ]] \
+        && ! [ -x "$(command -v telnet)" ]; then
+        exit_on_err 1 "Error: telnet is not installed. Try to use java -jar arthas-boot.jar"
+    fi
+
     # try to find arthas home from --use-version
     if [[ (-z "${ARTHAS_HOME}")  && (! -z "${USE_VERSION}") ]]; then
-        if [[ ! -d "${ARTHAS_LIB_DIR}/${USE_VERSION}/arthas" ]] ; then
-            update_if_necessary "${USE_VERSION}" || echo "update fail, ignore this update." 1>&2
-        fi
+        update_if_necessary "${USE_VERSION}" \
+            || exit_on_err 1 "Failed to install Arthas version ${USE_VERSION}."
         ARTHAS_HOME="${ARTHAS_LIB_DIR}/${USE_VERSION}/arthas"
     fi
 
     # try to set arthas home from as.sh directory
     if [ -z "${ARTHAS_HOME}" ] ; then
-        [[ -a "${DIR}/arthas-core.jar" ]] \
-        && [[ -a "${DIR}/arthas-agent.jar" ]] \
-        && [[ -a "${DIR}/arthas-spy.jar" ]] \
-        && ARTHAS_HOME="${DIR}"
+        is_arthas_home "${DIR}" && ARTHAS_HOME="${DIR}"
     fi
 
     # try to find arthas under ~/.arthas/lib
     if [ -z "${ARTHAS_HOME}" ] ; then
-        local remote_version=$(get_remote_version)
+        local remote_version
+        remote_version=$(get_remote_version) \
+            || echo "Failed to retrieve the latest Arthas version; trying the local cache." >&2
         local arthas_local_version=$(get_local_version)
-        if $(version_gt $remote_version $arthas_local_version) ; then
+        if version_gt "${remote_version}" "${arthas_local_version}"; then
             update_if_necessary "${remote_version}" || echo "update fail, ignore this update." 1>&2
         fi
-        local arthas_local_version=$(get_local_version)
+        arthas_local_version=$(get_local_version)
+        [[ -n "${arthas_local_version}" ]] \
+            || exit_on_err 1 "No usable Arthas installation in ${ARTHAS_LIB_DIR}; please retry or specify --arthas-home."
         ARTHAS_HOME="${ARTHAS_LIB_DIR}/${arthas_local_version}/arthas"
     fi
 
     echo "Arthas home: ${ARTHAS_HOME}"
 
-    if [ ! -d "${ARTHAS_HOME}" ] ; then
-        exit_on_err 1 "Arthas home is not a directory, please delete it and retry."
+    if ! is_arthas_home "${ARTHAS_HOME}"; then
+        exit_on_err 1 "Arthas home ${ARTHAS_HOME} is missing required JAR files."
     fi
 
     sanity_check
